@@ -1,0 +1,42 @@
+﻿<Project Sdk="Microsoft.NET.Sdk.Web">
+
+	<!-- Only needed when referencing the dependencies as projects. For package references, these are imported automatically. -->
+	<Import Project="..\..\..\src\Wasi.Sdk\build\Wasi.Sdk.props" />
+	<Import Project="..\..\..\src\Wasi.AspNetCore.Server.Atmo\build\Wasi.AspNetCore.Server.Atmo.props" />
+	<Import Project="..\..\..\src\Wasi.AspNetCore.BundledFiles\build\Wasi.AspNetCore.BundledFiles.props" />
+
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AtmoRunner>atmo</AtmoRunner> <!-- Pick either 'sat' or 'atmo' here - see below -->
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(AtmoRunner)' == 'sat'">
+		<!-- To run directly on Sat (https://github.com/suborbital/sat), set the path to the Sat executable here.
+			 You can either give an absolute path, or rely on 'sat' being available on the system PATH.
+			 Sat can run directly on Windows, Mac, or Linux. It is very light and fast to start, but is also
+			 currently very limited (e.g., no routing configuraton, and by default only accepts POST requests). -->
+		<WasiRunner>sat</WasiRunner>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(AtmoRunner)' == 'atmo'">
+		<!-- Alternatively, to run on Atmo (https://github.com/suborbital/atmo), edit the following to configure
+			 launching in Docker, directly or via WSL. Atmo is much more complete than Sat but takes longer to start. -->
+		<BuildAtmoBundle>true</BuildAtmoBundle>
+		<AtmoPort>63305</AtmoPort>
+		<RunCommand>wsl</RunCommand>
+		<RunArguments>-d Ubuntu-for-Docker AspNetBinDir=%24(pwd)/bin/$(Configuration)/net7.0 AtmoPort=$(AtmoPort) docker-compose up</RunArguments>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\Wasi.AspNetCore.Server.Atmo\Wasi.AspNetCore.Server.Atmo.csproj" />
+		<ProjectReference Include="..\..\..\src\Wasi.Sdk\Wasi.Sdk.csproj" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<!-- Only needed when referencing the dependencies as projects. For package references, these are imported automatically. -->
+	<Import Project="..\..\..\src\Wasi.Sdk\build\Wasi.Sdk.targets" />
+	<Import Project="..\..\..\src\Wasi.AspNetCore.Server.Atmo\build\Wasi.AspNetCore.Server.Atmo.targets" />
+	<Import Project="..\..\..\src\Wasi.AspNetCore.BundledFiles\build\Wasi.AspNetCore.BundledFiles.targets" />
+	
+</Project>

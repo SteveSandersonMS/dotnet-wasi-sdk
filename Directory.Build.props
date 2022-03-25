@@ -1,0 +1,12 @@
+<Project>
+
+	<PropertyGroup>
+        <VersionPrefix>0.1.0</VersionPrefix>
+		<PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\</PackageOutputPath>
+
+		<!-- This implicitly requires you to pass /p:VersionSuffix=something or it will fail -->
+		<!-- The pack.cmd script does so. TODO: Do the packing in AzDO without the local script. -->
+		<PackageVersion Condition="'$(VersionSuffix)' != ''">$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
+    </PropertyGroup>
+
+</Project>

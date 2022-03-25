@@ -1,0 +1,76 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFrameworks>net7.0;netstandard2.0</TargetFrameworks>
+		<LangVersion>latest</LangVersion>
+		<GenerateDependencyFile>false</GenerateDependencyFile>
+		<CopyLocalLockFileAssemblies Condition="'$(TargetFramework)' == 'netstandard2.0'">true</CopyLocalLockFileAssemblies>
+
+		<!-- Suppresses the warnings about the package not having assemblies in lib/*/.dll.-->
+    	<NoPackageAnalysis>true</NoPackageAnalysis>
+
+		<!-- OutDir is used in regular builds; BuildOutputTargetFolder is used when packing -->
+		<OutDir>tools\$(TargetFramework)\</OutDir>
+		<BuildOutputTargetFolder>tools</BuildOutputTargetFolder>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />
+		<PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" ExcludeAssets="Runtime" />
+		<PackageReference Include="System.Reflection.Metadata" Version="6.0.0" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+	</ItemGroup>
+
+	<Target Name="PrepareWasiWasmPack" BeforeTargets="Build">
+		<!--
+			These files become available when building modules/runtime
+			
+			- Use WSL
+			- cd modules/runtime/src/mono/wasm
+			- make build-all
+			- cd ../wasi
+			- make
+		-->
+		<PropertyGroup>
+			<_WasiRuntimeArtifactsBin>..\..\modules\runtime\artifacts\bin\</_WasiRuntimeArtifactsBin>
+			<_WasiRuntimeArtifactsNativeRoot>$(_WasiRuntimeArtifactsBin)mono\Wasi.Release\</_WasiRuntimeArtifactsNativeRoot>
+			<_WasiRuntimeArtifactsBrowserWasmRoot>$(_WasiRuntimeArtifactsBin)microsoft.netcore.app.runtime.browser-wasm\Release\runtimes\browser-wasm\</_WasiRuntimeArtifactsBrowserWasmRoot>
+		</PropertyGroup>
+		<ItemGroup>
+			<_WasiPackLibFiles Include="$(_WasiRuntimeArtifactsBrowserWasmRoot)lib\**\*.dll" />
+			<_WasiPackNativeFiles Include="$(_WasiRuntimeArtifactsNativeRoot)**" />
+
+			<!-- Grab the .h files from browser-wasm -->
+			<!-- TODO: Amend the Wasi.Release build output to include these -->
+			<_WasiPackNativeFiles Include="$(_WasiRuntimeArtifactsBrowserWasmRoot)native\include\mono-2.0\**" Subdir="include\" />
+			<_WasiPackNativeFiles Include="$(_WasiRuntimeArtifactsBrowserWasmRoot)native\include\wasm\**" Subdir="include\" />
+
+			<!-- Workaround for using libSystem.Native.a from the browser-wasm build output -->
+			<!-- TODO: Build this using WASI SDK, and get the output from _WasiRuntimeArtifactsNativeRoot -->
+			<_WasiPackNativeFiles Include="$(_WasiRuntimeArtifactsBrowserWasmRoot)\native\libSystem.Native.a" />
+
+			<!-- Not sure why we need to get this from the browser-wasm build output -->
+			<_WasiPackLibFiles Include="$(_WasiRuntimeArtifactsBrowserWasmRoot)native\System.Private.CoreLib.dll" Subdir="net7.0" />
+		</ItemGroup>
+		<Copy SourceFiles="@(_WasiPackLibFiles)" DestinationFolder="packs\wasi-wasm\lib\%(_WasiPackLibFiles.Subdir)%(RecursiveDir)" SkipUnchangedFiles="true" />
+		<Copy SourceFiles="@(_WasiPackNativeFiles)" DestinationFolder="packs\wasi-wasm\native\%(_WasiPackNativeFiles.Subdir)%(RecursiveDir)" SkipUnchangedFiles="true" />
+	</Target>
+
+	<Target Name="PackTaskDependencies" BeforeTargets="GenerateNuspec">
+		<!-- From https://natemcmaster.com/blog/2017/11/11/msbuild-task-with-dependencies/#third-party-dependencies-and-nuget -->
+		<!-- For .NET Framework, we need to include dependency assemblies in the tools dir. -->
+		<ItemGroup>
+			<_PackageFiles Include="$(OutDir)*\System*.dll">
+				<PackagePath>tools\%(RecursiveDir)</PackagePath>
+				<BuildAction>Content</BuildAction>
+			</_PackageFiles>
+		</ItemGroup>
+
+		<!-- Also include other required files -->
+		<ItemGroup>
+			<_PackageFiles Include="build\**" BuildAction="Content" PackagePath="build" />
+			<_PackageFiles Include="native\**" BuildAction="Content" PackagePath="native" />
+			<_PackageFiles Include="packs\**" BuildAction="Content" PackagePath="packs" />
+		</ItemGroup>
+	</Target>
+
+</Project>

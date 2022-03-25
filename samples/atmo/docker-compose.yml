@@ -1,0 +1,17 @@
+version: '2'
+services:
+  redis-server:
+    image: redis:latest
+    container_name: redis-server
+    ports:
+      - 6379:6379
+  atmo-server:
+    image: suborbital/atmo:v0.4.3
+    container_name: atmo-server
+    entrypoint: atmo
+    environment:
+      - ATMO_HTTP_PORT=80
+    ports:
+      - ${AtmoPort}:80
+    volumes:
+      - ${AspNetBinDir}:/home/atmo

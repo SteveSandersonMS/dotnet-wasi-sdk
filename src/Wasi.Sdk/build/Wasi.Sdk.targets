@@ -1,0 +1,243 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+	<PropertyGroup>
+		<WasiSdkTaskDir Condition="'$(MSBuildRuntimeType)' == 'Core'">net7.0</WasiSdkTaskDir>
+		<WasiSdkTaskDir Condition="'$(MSBuildRuntimeType)' != 'Core'">netstandard2.0</WasiSdkTaskDir>
+		<WasiSdkTaskAssembly>$(MSBuildThisFileDirectory)..\tools\$(WasiSdkTaskDir)\Wasi.Sdk.dll</WasiSdkTaskAssembly>
+	</PropertyGroup>
+
+	<UsingTask TaskName="Wasi.Sdk.Tasks.EmitWasmBundleObjectFile" AssemblyFile="$(WasiSdkTaskAssembly)" />
+	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmResolveAssemblyDependencies" AssemblyFile="$(WasiSdkTaskAssembly)" />
+	
+	<PropertyGroup>
+		<!-- Keep this block all in sync manually, since URLs can be arbitrary -->
+		<WasiSdkVersion>12.0</WasiSdkVersion>
+		<WasiSdkUrl Condition="$([MSBuild]::IsOSPlatform('Windows'))">https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-mingw.tar.gz</WasiSdkUrl>
+		<WasiSdkUrl Condition="$([MSBuild]::IsOSPlatform('Linux'))">https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-linux.tar.gz</WasiSdkUrl>
+		<WasiSdkUrl Condition="$([MSBuild]::IsOSPlatform('OSX'))">https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-12/wasi-sdk-12.0-macos.tar.gz</WasiSdkUrl>
+		
+		<WasiSdkRoot>$([System.IO.Path]::Combine($([System.Environment]::GetFolderPath(SpecialFolder.UserProfile)), ".wasi-sdk", "wasi-sdk-$(WasiSdkVersion)"))</WasiSdkRoot>
+		<WasiClang>$(WasiSdkRoot)\bin\clang</WasiClang>
+		<WasiClang Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(WasiClang).exe</WasiClang>
+		<WasiRuntimePackRoot>$(MSBuildThisFileDirectory)..\packs\wasi-wasm\</WasiRuntimePackRoot>
+		<WasiBundleAssemblies Condition="'$(WasiBundleAssemblies)' == ''">true</WasiBundleAssemblies>
+
+		<!-- This assumes that wasmtime is available on path. Developers can set an environment variable referencing any other runner or location. -->
+		<WasiRunner Condition="'$(WasiRunner)' == ''">wasmtime</WasiRunner>
+
+		<CopyWasmToOutputDependsOn>
+			$(CopyWasmToOutputDependsOn);
+			ObtainWasiSdk;
+			PrepareBuildWasmInputs;
+			BuildWasm;
+		</CopyWasmToOutputDependsOn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(RunCommand)' == '' AND '$(WasiRunner)' != ''">
+		<RunCommand>$(WasiRunner)</RunCommand>
+		<RunWorkingDirectory>$(MSBuildProjectDirectory)</RunWorkingDirectory>
+		
+		<!-- For some reason neither $(OutDir) nor $(OutputPath) seem to be set-->
+		<RunArguments>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).wasm</RunArguments>
+
+		<RunArguments Condition="'$(WasiRunnerArgs)' != ''">$(RunArguments) $(WasiRunnerArgs)</RunArguments>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\*.a" />
+		<UpToDateCheckInput Include="@(WasiNativeFileReference)" />
+	</ItemGroup>
+
+	<Target Name="ResolveWasiFrameworkReferenceAssemblies">
+		<!-- For any framework references, e.g., to Microsoft.AspNetCore.App, the @(ReferencePath) collection will only include
+		     an item for its reference assembly, not its implementation assembly. We need the implementation assemblies at runtime
+			 and even at dependency-walking time since the deps might include more than just what the implementation assemblies say.
+			 The logic here attempts to guess the disk path to the implementation assemblies based on SDK conventions.
+
+			 This is definitely NOT how things should work, and may be fragile as it relies on assumptions about the SDK layout on disk.
+			 For a real implementation, we should create a proper wasi-wasm RID and have real runtime packs for it. Then we'd use the
+			 same technique the Blazor SDK does to set the project RID to wasi-wasm, and then the normal build process would resolve
+			 all the framework references to RID-specific implementations for us. -->
+		<PropertyGroup>
+			<_PathSep>/</_PathSep>
+			<_PathSep Condition="$([MSBuild]::IsOSPlatform('Windows'))">\</_PathSep>
+		</PropertyGroup>
+		<ItemGroup>
+			<_WasiResolvedFrameworkReference Include="@(ResolvedFrameworkReference)" Condition="'%(ResolvedFrameworkReference.Identity)' != 'Microsoft.NETCore.App'" />
+			<_WasiResolvedFrameworkReference Update="@(_WasiResolvedFrameworkReference)">
+				<!-- e.g., From: C:\Program Files\dotnet\packs\Microsoft.AspNetCore.App.Ref\7.0.0-preview.3.22152.6
+							 To: C:\Program Files\dotnet\shared\Microsoft.AspNetCore.App\7.0.0-preview.3.22152.6 -->
+				<ImplementationPath>$([System.String]::Copy('%(TargetingPackPath)').Replace('packs$(_PathSep)%(OriginalItemSpec).Ref', 'shared$(_PathSep)%(OriginalItemSpec)'))</ImplementationPath>
+			</_WasiResolvedFrameworkReference>
+		</ItemGroup>
+		<PropertyGroup>
+			<_WasiResolvedFrameworkReferenceAssembliesPattern>@(_WasiResolvedFrameworkReference->'%(ImplementationPath)\*.dll', ';')</_WasiResolvedFrameworkReferenceAssembliesPattern>
+		</PropertyGroup>
+		<ItemGroup>
+			<_WasiResolvedFrameworkReferenceAssemblies Include="$(_WasiResolvedFrameworkReferenceAssembliesPattern)" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="PrepareBuildWasmInputs" DependsOnTargets="ResolveWasiFrameworkReferenceAssemblies">
+		<!-- First, walk the dependency chain of .NET assemblies so we get the minimal set needed to bundle -->
+		<ItemGroup>
+			<_WasiRuntimePackAssemblies Include="$(WasiRuntimePackRoot)lib\net7.0\*.dll" />
+			<_WasiRuntimePackAssemblies Include="@(_WasiResolvedFrameworkReferenceAssemblies)" />
+			<_WasmApplicationAssemblies Include="@(ReferencePath)" Condition="'%(ReferencePath.FrameworkReferenceName)' == ''" />
+		</ItemGroup>
+
+		<WasmResolveAssemblyDependencies EntryPoint="$(OutDir)$(TargetFileName)" ApplicationAssemblies="@(_WasmApplicationAssemblies)" WasiRuntimePackAssemblies="@(_WasiRuntimePackAssemblies)">
+			<Output TaskParameter="Dependencies" ItemName="_WasmTransitivelyReferencedAssemblies" />
+		</WasmResolveAssemblyDependencies>
+		
+		<!-- Optionally, trim during the build -->
+		<!-- This produces a lot of messy warnings, and has no incrementalism, so should be considered extra-experimental -->
+		<PropertyGroup Condition="'$(WasiTrim)' == 'true' AND '$(DOTNET_HOST_PATH)' == ''">
+			<_DotNetHostDirectory>$(NetCoreRoot)</_DotNetHostDirectory>
+			<_DotNetHostFileName>dotnet</_DotNetHostFileName>
+			<_DotNetHostFileName Condition="'$(OS)' == 'Windows_NT'">dotnet.exe</_DotNetHostFileName>
+		</PropertyGroup>
+		<ILLink
+			Condition="'$(WasiTrim)' == 'true'"
+			AssemblyPaths="@(_WasmTransitivelyReferencedAssemblies)"
+			OutputDirectory="$(IntermediateOutputPath)dotnet-wasi-sdk\linked\"
+			RootAssemblyNames="$(OutDir)$(TargetFileName)"
+			TrimMode="link"
+			DefaultAction="copy"
+			SingleWarn="true"
+			Warn="5"
+			TreatWarningsAsErrors="false"
+			NoWarn="1701;1702;1701;1702"
+			RemoveSymbols="true"
+			ToolExe="$(_DotNetHostFileName)"
+			ToolPath="$(_DotNetHostDirectory)" />		
+		<ItemGroup Condition="'$(WasiTrim)' == 'true'">
+			<_WasmTransitivelyReferencedAssemblies Remove="@(_WasmTransitivelyReferencedAssemblies)" />
+			<_WasmTransitivelyReferencedAssemblies Include="$(IntermediateOutputPath)dotnet-wasi-sdk\linked\*.dll" />
+		</ItemGroup>
+
+		<!-- Now we can populate the list of files to bundle and any other WASM build inputs -->
+		<PropertyGroup>
+			<WasmOutputIntermediateDir>$(IntermediateOutputPath)dotnet-wasi-sdk\</WasmOutputIntermediateDir>
+			<WasmOutputIntermediateFile>$(WasmOutputIntermediateDir)$(AssemblyName).wasm</WasmOutputIntermediateFile>
+		</PropertyGroup>
+		<ItemGroup>
+			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true'" Include="@(_WasmTransitivelyReferencedAssemblies)" WasmRole="assembly" />
+			<BuildWasmInputs Include="@(WasiNativeFileReference)" />
+			<BuildWasmInputs Include="@(WasmBundleFiles)" />
+			<BuildWasmInputs Include="@(IntermediateAssembly)" />
+			<UpToDateCheckOutput Include="$(WasmOutputIntermediateFile)" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="GenerateWasmBundleSources">
+		<PropertyGroup>
+			<_WasmBundleObjectsIntermediateDir>$(WasmOutputIntermediateDir)bundle-objects\</_WasmBundleObjectsIntermediateDir>
+			<_GetBundledFileSourcePath>$(_WasmBundleObjectsIntermediateDir)dotnet_wasi_getbundledfile.c</_GetBundledFileSourcePath>
+		</PropertyGroup>
+
+		<!-- Get the file hashes of everything in @(WasmBundleFiles), then pass it all to EmitWasmBundleObjectFile. This
+		     will emit corresponding .o files for anything we don't already have on disk. -->
+		<GetFileHash Files="@(WasmBundleFiles)">
+			<Output TaskParameter="Items" ItemName="WasmBundleFilesWithHashes" />
+		</GetFileHash>
+		<ItemGroup>
+			<WasmBundleFilesWithHashes Update="@(WasmBundleFilesWithHashes)">
+				<ObjectFile>$(_WasmBundleObjectsIntermediateDir)%(WasmBundleFilesWithHashes.Filename)%(WasmBundleFilesWithHashes.Extension).$([System.String]::Copy(%(WasmBundleFilesWithHashes.FileHash)).Substring(0, 8)).o</ObjectFile>
+			</WasmBundleFilesWithHashes>
+		</ItemGroup>
+		<EmitWasmBundleObjectFile FilesToBundle="@(WasmBundleFilesWithHashes)" ClangExecutable="$(WasiClang)">
+			<Output TaskParameter="BundleApiSourceCode" ItemName="_WasiBundleApiSourceCode" />
+		</EmitWasmBundleObjectFile>
+
+		<!-- Write out the .c source code of a file that knows about all the bundled files and can supply them at runtime.
+		     Also include this, and the bundle object files, in the set of files to compile. -->
+		<WriteLinesToFile File="$(_GetBundledFileSourcePath)"
+			Overwrite="true"
+			Lines="@(_WasiBundleApiSourceCode)"
+			WriteOnlyWhenDifferent="true" />
+		<ItemGroup>
+			<WasiNativeFileReference Include="$(_GetBundledFileSourcePath)" />
+			<WasiNativeFileReference Include="%(WasmBundleFilesWithHashes.ObjectFile)" />
+		</ItemGroup>
+
+		<!-- Clean up the bundle-objects dir - remove anything we no longer need -->
+		<ItemGroup>
+			<WasmBundleFileToDelete Include="$(_WasmBundleObjectsIntermediateDir)*.o" />
+			<WasmBundleFileToDelete Remove="%(WasmBundleFilesWithHashes.ObjectFile)" />
+		</ItemGroup>
+		<Delete Files="@(WasmBundleFileToDelete)" />
+	</Target>
+	
+	<Target Name="BuildWasm" Inputs="@(BuildWasmInputs)" Outputs="$(WasmOutputIntermediateFile)" DependsOnTargets="GenerateWasmBundleSources">
+		<!-- Generate a file entrypoint_YourAssemblyName.c containing the dotnet_wasi_getentrypointassemblyname symbol.
+			 This means we don't have to hardcode the assembly name in main.c -->
+		<PropertyGroup>
+			<WasiGetEntrypointCFile>$(WasmOutputIntermediateDir)entrypoint_$(AssemblyName).c</WasiGetEntrypointCFile>
+		</PropertyGroup>
+		<WriteLinesToFile File="$(WasiGetEntrypointCFile)"
+						  Overwrite="true"
+						  Lines="const char* dotnet_wasi_getentrypointassemblyname() { return &quot;$(TargetFileName)&quot;%3B }"
+						  WriteOnlyWhenDifferent="true" />
+		<ItemGroup>
+			<WasiNativeFileReference Include="$(WasiGetEntrypointCFile)" />
+			<FileWrites Include="$(WasiGetEntrypointCFile)" />
+			<WasiAfterRuntimeLoadedDeclarations Include="@(WasiAfterRuntimeLoaded->'void %(Identity)();')" />
+			<WasiAfterRuntimeLoadedCalls Include="@(WasiAfterRuntimeLoaded->'%(Identity)();')" />
+		</ItemGroup>
+
+		<!-- Invoke the WASI SDK clang binary to build the .wasm file -->
+		<PropertyGroup>
+			<WasiSdkClangArgs>@(WasiNativeFileReference, ' ')</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) --sysroot=$(WasiSdkRoot)\share\wasi-sysroot</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -I$(WasiRuntimePackRoot)native\include</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,--export=malloc,--export=free,--export=__heap_base,--export=__data_end</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-z,stack-size=1048576,--initial-memory=524288000,--max-memory=524288000,-lwasi-emulated-mman</WasiSdkClangArgs>
+			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedDeclarations)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_DECLARATIONS=&quot;@(WasiAfterRuntimeLoadedDeclarations, ' ')&quot;</WasiSdkClangArgs>
+			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedCalls)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_CALLS=&quot;@(WasiAfterRuntimeLoadedCalls, ' ')&quot;</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -o &quot;$(WasmOutputIntermediateFile)&quot;</WasiSdkClangArgs>
+		</PropertyGroup>
+		<MakeDir Directories="$(WasmOutputIntermediateDir)" />
+		<Message Importance="normal" Text="Performing WASI SDK build: &quot;$(WasiClang)&quot; $(WasiSdkClangArgs)" />
+		<Exec Command="&quot;$(WasiClang)&quot; $(WasiSdkClangArgs)" />
+		<ItemGroup>
+			<FileWrites Include="$(WasmOutputIntermediateFile)" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="CopyWasmToOutput" AfterTargets="Build" DependsOnTargets="$(CopyWasmToOutputDependsOn)">
+		<Copy SourceFiles="$(WasmOutputIntermediateFile)"
+			  SkipUnchangedFiles="true"
+			  DestinationFolder="$(OutDir)">
+			<Output TaskParameter="CopiedFiles" ItemName="WasiSdkBinOutputFiles" />
+		</Copy>
+		<Copy Condition="'$(WasiBundleAssemblies)' != 'true'"
+			  SourceFiles="@(_WasmTransitivelyReferencedAssemblies)"
+			  DestinationFolder="$(OutDir)" />
+		<Message Importance="high" Text="$(AssemblyName) -> @(WasiSdkBinOutputFiles->'$([System.IO.Path]::GetFullPath('%(WasiSdkBinOutputFiles.Identity)'))')" />
+		<ItemGroup>
+			<FileWrites Include="@(WasiSdkBinOutputFiles)" />
+		</ItemGroup>
+	</Target>
+
+	<Target Name="ObtainWasiSdk" Condition="!(Exists($(WasiClang)))">
+		<PropertyGroup>
+			<WasiSdkDownloadTempDir>$(IntermediateOutputPath)\wasi-sdk-temp</WasiSdkDownloadTempDir>
+		</PropertyGroup>
+
+		<MakeDir Directories="$(WasiSdkDownloadTempDir)" />
+		<DownloadFile
+            SourceUrl="$(WasiSdkUrl)"
+            DestinationFolder="$(WasiSdkDownloadTempDir)">
+			<Output TaskParameter="DownloadedFile" ItemName="WasiSdkDownloadTempFile" />
+		</DownloadFile>
+
+		<!-- Windows 10+ has tar built in, so this should work cross-platform -->
+		<Message Importance="high" Text="Extracting @(WasiSdkDownloadTempFile) to $(WasiSdkRoot)..." />
+		<MakeDir Directories="$(WasiSdkRoot)" />
+		<Exec Command="tar -xf &quot;@(WasiSdkDownloadTempFile)&quot; -C &quot;$(WasiSdkRoot)&quot; --strip-components=1" />
+		<RemoveDir Directories="$(WasiSdkDownloadTempDir)" />
+	</Target>
+
+</Project>

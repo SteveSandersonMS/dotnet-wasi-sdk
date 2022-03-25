@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\Wasi.AspNetCore.BundledFiles\Wasi.AspNetCore.BundledFiles.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<UpToDateCheckInput Include="native\interop.c" />
+		<UpToDateCheckInput Include="native\tcp_listener_loop.c" />
+	</ItemGroup>
+
+	<Target Name="PackTaskDependencies" BeforeTargets="GenerateNuspec">
+		<ItemGroup>
+			<_PackageFiles Include="build\**" BuildAction="Content" PackagePath="build" />
+			<_PackageFiles Include="native\**" BuildAction="Content" PackagePath="native" />
+		</ItemGroup>
+	</Target>
+
+</Project>

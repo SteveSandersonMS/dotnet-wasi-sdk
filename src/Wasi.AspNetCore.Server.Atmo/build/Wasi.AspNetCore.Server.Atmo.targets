@@ -1,0 +1,45 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+	<ItemGroup>
+		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\host_interop.c" />
+		<WasiAfterRuntimeLoaded Include="atmo_attach_internal_calls" />
+		<UpToDateCheckInput Include="Directive.yaml" />
+	</ItemGroup>
+
+	<Target Name="BuildRunnablesBundle" AfterTargets="build" Condition="'$(BuildAtmoBundle)' == 'true'"
+			DependsOnTargets="_GetAtmoRunnablesBundleInputs; _EmitAtmoRunnablesBundle">
+	</Target>
+
+	<Target Name="_GetAtmoRunnablesBundleInputs">
+		<ItemGroup>
+			<_AtmoRunnablesBundleInput Include="$(OutDir)$(AssemblyName).wasm" />
+			<_AtmoRunnablesBundleInput Include="Directive.yaml" />
+		</ItemGroup>
+		<PropertyGroup>
+			<_AtmoRunnablesBundleOutputFile>$(OutDir)runnables.wasm.zip</_AtmoRunnablesBundleOutputFile>
+		</PropertyGroup>
+	</Target>
+
+	<Target Name="_EmitAtmoRunnablesBundle" Inputs="@(_AtmoRunnablesBundleInput)" Outputs="$(_AtmoRunnablesBundleOutputFile)">
+		<PropertyGroup>
+			<_RunnablesTemp>$(IntermediateOutputPath)atmo\</_RunnablesTemp>
+		</PropertyGroup>
+		<ItemGroup>
+			<_RunnableLines Include="%20" />
+			<_RunnableLines Include="runnables:" />
+			<_RunnableLines Include="- name: $(AssemblyName)" />
+			<_RunnableLines Include="%20%20namespace: default" />
+			<_RunnableLines Include="%20%20lang: rust" />
+			<_RunnableLines Include="%20%20version: &quot;&quot;" />
+			<_RunnableLines Include="%20%20apiVersion: 0.15.0" />
+			<_RunnableLines Include="%20%20fqfn: com.suborbital.$(AssemblyName)#default::$(AssemblyName)@v0.1.0" />
+			<_RunnableLines Include="%20%20fqfnUri: &quot;&quot;" />
+		</ItemGroup>
+		<MakeDir Directories="$(_RunnablesTemp)" />
+		<Copy SourceFiles="$(OutDir)$(AssemblyName).wasm" DestinationFolder="$(_RunnablesTemp)" />
+		<Copy SourceFiles="Directive.yaml" DestinationFolder="$(_RunnablesTemp)" />
+		<WriteLinesToFile File="$(_RunnablesTemp)Directive.yaml" Lines="@(_RunnableLines)" />
+		<ZipDirectory SourceDirectory="$(_RunnablesTemp)" DestinationFile="$(_AtmoRunnablesBundleOutputFile)" Overwrite="true" />
+	</Target>
+
+</Project>

@@ -1,0 +1,13 @@
+{
+  "profiles": {
+    "AspNetCoreOnCustomHost": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "SAT_HTTP_PORT": "63305"
+      },
+      "applicationUrl": "http://localhost:63305"
+    }
+  }
+}

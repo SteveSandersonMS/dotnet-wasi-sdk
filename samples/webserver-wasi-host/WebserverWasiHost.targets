@@ -1,0 +1,23 @@
+<Project>
+
+    <PropertyGroup>
+        <WebServerWasiHostRoot>$(MSBuildThisFileDirectory)</WebServerWasiHostRoot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <WebServerWasiHostSources Include="$(WebServerWasiHostRoot)Cargo.*" />
+        <WebServerWasiHostSources Include="$(WebServerWasiHostRoot)src\**" />
+        <UpToDateCheckInput Include="@(WebServerWasiHostSources)" />
+    </ItemGroup>
+
+    <PropertyGroup>
+        <WebServerWasiHostExecutable>$(WebServerWasiHostRoot)target\release\webserver-wasi-host</WebServerWasiHostExecutable>
+        <WebServerWasiHostExecutable Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(WebServerWasiHostExecutable).exe</WebServerWasiHostExecutable>
+    </PropertyGroup>
+
+    <Target Name="BuildWebServerWasiHost" BeforeTargets="Build" Inputs="@(WebServerWasiHostSources)" Outputs="$(WebServerWasiHostExecutable)">
+        <Message Importance="high" Text="Rebuilding webserver-wasi-host (Rust). This may take a while..." />
+        <Exec Command="cargo build --release" WorkingDirectory="$(WebServerWasiHostRoot)" />
+    </Target>
+
+</Project>

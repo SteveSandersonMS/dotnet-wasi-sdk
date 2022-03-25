@@ -1,0 +1,12 @@
+[package]
+name = "webserver-wasi-host"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+anyhow = "1.0"
+wasmtime = "0.32.0"
+wasmtime-wasi = "0.32.0"
+tiny_http = "0.6"

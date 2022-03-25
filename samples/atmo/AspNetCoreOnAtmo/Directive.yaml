@@ -1,0 +1,19 @@
+identifier: com.suborbital.important-api
+appVersion: v0.1.0
+atmoVersion: v0.4.3
+
+handlers:
+- type: request
+  method: GET
+  resource: /
+  steps:
+  - fn: AspNetCoreOnAtmo
+- type: request
+  method: GET
+  resource: /api/*url
+  steps:
+  - fn: AspNetCoreOnAtmo
+
+connections:
+  redis:
+    serverAddress: redis-server:6379

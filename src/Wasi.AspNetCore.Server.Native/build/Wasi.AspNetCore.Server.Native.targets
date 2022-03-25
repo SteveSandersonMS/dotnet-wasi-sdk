@@ -1,0 +1,8 @@
+﻿<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+
+	<ItemGroup>
+		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
+		<WasiAfterRuntimeLoaded Include="native_networking_attach_internal_calls" />
+	</ItemGroup>
+
+</Project>

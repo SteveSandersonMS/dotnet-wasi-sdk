@@ -1,0 +1,8 @@
+<Project>
+
+	<Import Project="..\Directory.Build.props" />
+
+	<!-- Configure this project to build webserver-wasi-host (Rust) if needed -->
+	<Import Project="..\webserver-wasi-host\WebserverWasiHost.targets" />
+
+</Project>
