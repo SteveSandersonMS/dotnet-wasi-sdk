@@ -67,8 +67,8 @@ Optionally, to add support for bundling `wwwroot` files into the `.wasm` file an
 
    ```xml
    <ItemGroup>
-		   <WasmBundleFiles Include="wwwroot\**" />
-	 </ItemGroup>
+       <WasmBundleFiles Include="wwwroot\**" />
+   </ItemGroup>
    ```
 
 ## What's in this repo
