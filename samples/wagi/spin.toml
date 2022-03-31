@@ -1,0 +1,29 @@
+spin_version = "1"
+authors = ["Fermyon Engineering <engineering@fermyon.com>"]
+description = "Demo app for .NET"
+name = "spinet"
+trigger = { type = "http", base = "/" }
+version = "1.0.0"
+
+[[component]]
+source = "Home/bin/Debug/net7.0/Home.wasm"
+id = "home"
+[component.trigger]
+route = "/"
+executor = { type = "wagi" }
+
+[[component]]
+source = "CSharpFileServer/bin/Debug/net7.0/CSharpFileServer.wasm"
+id = "csharp-static"
+files = [ { source = "CSharpFileServer/assets", destination = "/" } ]
+[component.trigger]
+route = "/csharp-static/..."
+executor = { type = "wagi" }
+
+[[component]]
+source = "FSharpFileServer/bin/Debug/net7.0/FSharpFileServer.wasm"
+id = "fssharp-static"
+files = [ { source = "FSharpFileServer/assets", destination = "/" } ]
+[component.trigger]
+route = "/fsharp-static/..."
+executor = { type = "wagi" }
