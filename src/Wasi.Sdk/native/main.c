@@ -18,7 +18,7 @@ int main(int argc, char *argv[]) {
     dotnet_wasi_registerbundledassemblies();
 
     if (argc > 1 && !strcmp(argv[1], "debug"))
-        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=10", -1);
+        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=0", -1);
     else
         mono_wasm_load_runtime("", 0);
 
