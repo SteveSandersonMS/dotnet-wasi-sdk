@@ -1,8 +1,4 @@
-﻿// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
-
-using System;
-using System.Diagnostics;
+﻿using System.Text.Json;
 
 namespace WasiConsoleApp
 {
@@ -10,14 +6,46 @@ namespace WasiConsoleApp
     {
         public static int Main()
         {
-            int a = 10;
-            a += 10;
-            Console.WriteLine($"a value = {a}");
-            Console.WriteLine($"a value = {a+=10}");
-            Console.WriteLine($"a value = {a+=10}");
-            Console.WriteLine($"a value = {a+=10}");
-            Console.WriteLine($"Hello from .NET at {DateTime.Now.ToLongTimeString()}");
+            var file = File.Open("ConsoleApp.deps.json", FileMode.Open);
+            var elem = JsonSerializer.Deserialize<JsonElement>(file);
+            WalkJson(elem, depth: 0);
             return 0;
+        }
+
+        private static void WalkJson(JsonElement root, int depth)
+        {
+            switch (root.ValueKind)
+            {
+                case JsonValueKind.Object:
+                    Console.WriteLine();
+                    foreach (var prop in root.EnumerateObject())
+                    {
+                        Console.Write(new String(' ', depth * 4));
+                        Console.Write($"{prop.Name}: ");
+                        WalkJson(prop.Value, depth + 1);
+                    }
+                    break;
+                case JsonValueKind.Array:
+                    Console.WriteLine();
+                    var index = 0;
+                    foreach (var arrayEntry in root.EnumerateArray())
+                    {
+                        Console.Write(new String(' ', depth * 4));
+                        Console.Write($"[{index}]: ");
+                        WalkJson(arrayEntry, depth + 1);
+                        index++;
+                    }
+                    break;
+                case JsonValueKind.Undefined:
+                    Console.WriteLine("undefined");
+                    break;
+                case JsonValueKind.Null:
+                    Console.WriteLine("null");
+                    break;
+                default:
+                    Console.WriteLine(root.ToString());
+                    break;
+            }
         }
     }
 }
