@@ -1,0 +1,19 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch",
+            "type": "node-terminal",
+            "request": "launch",
+            "command": "c:\\git\\bytecodealliance\\wasmtime\\target\\release\\wasmtime.exe ConsoleApp.wasm --dir=. --tcplisten 127.0.0.1:5000 --tcplisten 127.0.0.1:64000 \"debug\"",
+            "cwd": "${workspaceFolder}\\bin\\Debug\\net7.0"
+        },
+        {
+            "name": "Attach",
+            "type": "mono",
+            "request": "attach",
+            "address": "127.0.0.1",
+            "port": 64000
+        }
+    ]
+}

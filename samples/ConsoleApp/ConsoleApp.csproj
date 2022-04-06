@@ -8,6 +8,7 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+		<WasiBundleAssemblies>false</WasiBundleAssemblies>
 	</PropertyGroup>
 
 	<ItemGroup>

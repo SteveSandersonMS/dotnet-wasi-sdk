@@ -14,10 +14,13 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
-int main() {
+int main(int argc, char *argv[]) {
     dotnet_wasi_registerbundledassemblies();
 
-    mono_wasm_load_runtime("", 0);
+    if (argc > 1 && !strcmp(argv[1], "debug"))
+        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=10", -1);
+    else
+        mono_wasm_load_runtime("", 0);
 
 #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
     // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
