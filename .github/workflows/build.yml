@@ -15,14 +15,18 @@ jobs:
     - name: Install build dependencies
       run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
-    - name: Setup .NET
+    - name: Install .NET SDK
       uses: actions/setup-dotnet@v2
       with:
         dotnet-version: 7.0.x
         include-prerelease: true
+    - name: Build .NET runtime for WASI
+      run: cd modules/runtime/src/mono/wasi && make
+    - name: Build .NET libraries
+      run: cd modules/runtime/src/mono/wasm && make provision-wasm && make build-all
     - name: Restore dependencies
       run: dotnet restore
     - name: Build
       run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+    - name: Pack
+      run: dotnet pack
