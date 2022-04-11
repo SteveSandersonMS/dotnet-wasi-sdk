@@ -1,56 +1,26 @@
-trigger:
-- main
+name: BuildAll
 
-variables:
-  versionprefix: 0.2.0
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-- job: 'BuildPackage'
-  strategy:
-    matrix:
-      linux:
-        imageName: 'ubuntu-18.04'
-        rid: 'linux-x64'
+  build:
 
-  pool:
-    vmImage: $(imageName)
+    runs-on: ubuntu-latest
 
-  variables:
-    buildConfiguration: 'Release'
-
-  steps:
-  - task: UseDotNet@2
-    displayName: 'Use .NET Core sdk'
-    inputs:
-      packageType: sdk
-      includePreviewVersions: true
-      version: 7.0.x
-      installationPath: $(Agent.ToolsDirectory)/dotnet
-  - task: CmdLine@2
-    displayName: 'Install linux dependencies'
-    condition: eq(variables.rid, 'linux-x64')
-    inputs:
-      script: 'sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev'
-  - task: CmdLine@2
-    displayName: 'Build .NET runtime for WASI'
-    inputs:
-      script: |
-        cd modules/runtime/src/mono/wasi
-        make
-  - task: CmdLine@2
-    displayName: 'Build .NET libraries'
-    inputs:
-      script: |
-        cd modules/runtime/src/mono/wasm
-        make provision-wasm
-        make build-all
-  - task: CmdLine@2
-    displayName: 'dotnet pack WASI SDK'
-    inputs:
-      script: |
-        dotnet pack -c $(buildConfiguration) dotnet-wasi-sdk.sln /p:VersionPrefix=$(versionprefix) /p:VersionSuffix=$(Build.BuildNumber)
-  - task: PublishBuildArtifacts@1
-    inputs:
-      PathtoPublish: 'artifacts'
-      ArtifactName: 'artifacts'
-      publishLocation: 'Container'
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 7.0.x
+        include-prerelease: true
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --no-restore
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
