@@ -40,7 +40,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Pack
-      run: dotnet pack dotnet-wasi-sdk.sln /c Release /p:VersionSuffix=${{ github.run_number }}
+      run: dotnet pack dotnet-wasi-sdk.sln -c Release /p:VersionSuffix=${{ github.run_number }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
