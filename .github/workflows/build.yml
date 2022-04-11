@@ -6,10 +6,6 @@ on:
   pull_request:
     branches: [ main ]
 
-env:
-  PACKAGE_VERSION_PREFIX: 0.2.0
-  DOTNET_BUILD_CONFIG: Release
-
 jobs:
   build:
 
@@ -44,7 +40,7 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Pack
-      run: dotnet pack dotnet-wasi-sdk.sln /c ${{ env.DOTNET_BUILD_CONFIG }} /p:VersionPrefix=${{ env.PACKAGE_VERSION_PREFIX }} /p:VersionSuffix=${{ github.run_number }}
+      run: dotnet pack dotnet-wasi-sdk.sln /c Release /p:VersionSuffix=${{ github.run_number }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
