@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Checkout submodules
+      run: git submodule update --init --recursive
     - name: Install build dependencies
       run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
