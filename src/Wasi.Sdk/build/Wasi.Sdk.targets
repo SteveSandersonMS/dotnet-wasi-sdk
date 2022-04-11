@@ -45,7 +45,11 @@
 
 	<ItemGroup>
 		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
-		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\*.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ee-interp.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ilgen.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libSystem.Native.a" />
 		<UpToDateCheckInput Include="@(WasiNativeFileReference)" />
 	</ItemGroup>
 
