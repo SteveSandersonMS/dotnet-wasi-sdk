@@ -38,3 +38,14 @@ jobs:
       run: cd modules/runtime/src/mono/wasm && make provision-wasm && make build-all
       if: steps.cache-dotnet-libraries-build.outputs.cache-hit != 'true'
 
+    - name: Build .NET runtime for WASI
+      run: cd modules/runtime/src/mono/wasi && make
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Pack
+      run: dotnet pack dotnet-wasi-sdk.sln /c ${{ env.DOTNET_BUILD_CONFIG }} /p:VersionPrefix=${{ env.PACKAGE_VERSION_PREFIX }} /p:VersionSuffix=${{ github.run_number }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: artifacts/*
