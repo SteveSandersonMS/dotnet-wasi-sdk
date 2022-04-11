@@ -12,6 +12,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Get package version suffix
+      run: echo "PACKAGE_VERSION_SUFFIX=$(printf %06d ${{ github.run_number }})" >> $GITHUB_ENV
+    - name: Check it
+      run echo ${{ env.PACKAGE_VERSION_SUFFIX }}
     - name: Install build dependencies
       run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
@@ -40,9 +44,11 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
     - name: Pack
-      run: dotnet pack dotnet-wasi-sdk.sln -c Release /p:VersionSuffix=${{ github.run_number }}
+      run: dotnet pack dotnet-wasi-sdk.sln -c Release /p:VersionSuffix=${{ env.PACKAGE_VERSION_SUFFIX }}
     - name: Upload artifacts
       uses: actions/upload-artifact@v3
       with:
-        name: artifacts
-        path: artifacts/*
+        name: nuget-packages
+        path: |
+          artifacts/*.nupkg
+        if-no-files-found: error
