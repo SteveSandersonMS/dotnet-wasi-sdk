@@ -2,7 +2,7 @@ name: BuildAll
 
 on:
   push:
-    branches: [ main, ci-build ]
+    branches: [ main ]
   pull_request:
     branches: [ main ]
 
