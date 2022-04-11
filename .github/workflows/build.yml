@@ -15,7 +15,7 @@ jobs:
     - name: Get package version suffix
       run: echo "PACKAGE_VERSION_SUFFIX=$(printf %06d ${{ github.run_number }})" >> $GITHUB_ENV
     - name: Check it
-      run echo ${{ env.PACKAGE_VERSION_SUFFIX }}
+      run: echo ${{ env.PACKAGE_VERSION_SUFFIX }}
     - name: Install build dependencies
       run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
