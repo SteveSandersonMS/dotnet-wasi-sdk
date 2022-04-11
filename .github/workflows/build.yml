@@ -13,7 +13,7 @@ jobs:
 
     steps:
     - name: Get package version suffix
-      run: echo "PACKAGE_VERSION_SUFFIX=preview$(printf %06d ${{ github.run_number }})" >> $GITHUB_ENV
+      run: echo "PACKAGE_VERSION_SUFFIX=preview.$(printf %05d ${{ github.run_number }})" >> $GITHUB_ENV
     - name: Install build dependencies
       run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
@@ -47,6 +47,5 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: nuget-packages
-        path: |
-          artifacts/*.nupkg
+        path: artifacts/*.nupkg
         if-no-files-found: error
