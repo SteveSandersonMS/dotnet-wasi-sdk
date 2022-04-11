@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  PACKAGE_VERSION_PREFIX: 0.2.0
+  DOTNET_BUILD_CONFIG: Release
+
 jobs:
   build:
 
@@ -22,13 +26,26 @@ jobs:
       with:
         dotnet-version: 7.0.x
         include-prerelease: true
-    - name: Build .NET runtime for WASI
-      run: cd modules/runtime/src/mono/wasi && make
+
+    - run: echo "RUNTIME_SUBMODULE_COMMIT=$(git rev-parse HEAD:modules/runtime)" >> $GITHUB_ENV
+    - name: Cache .NET libraries build output
+      uses: actions/cache@v2
+      id: cache-dotnet-libraries-build
+      with:
+        path: ./modules/runtime/artifacts/bin/microsoft.netcore.app.runtime.browser-wasm
+        key: ${{ runner.OS }}-cache-dotnet-libraries-build-${{ env.RUNTIME_SUBMODULE_COMMIT }}
     - name: Build .NET libraries
       run: cd modules/runtime/src/mono/wasm && make provision-wasm && make build-all
+      if: steps.cache-dotnet-libraries-build.outputs.cache-hit != 'true'
+
+    - name: Build .NET runtime for WASI
+      run: cd modules/runtime/src/mono/wasi && make
     - name: Restore dependencies
       run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
     - name: Pack
-      run: dotnet pack
+      run: dotnet pack dotnet-wasi-sdk.sln /c $DOTNET_BUILD_CONFIG /p:VersionPrefix=$PACKAGE_VERSION_PREFIX /p:VersionSuffix=${{ github.run_number }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: artifacts
+        path: artifacts/*
