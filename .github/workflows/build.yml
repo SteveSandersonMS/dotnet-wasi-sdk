@@ -1,0 +1,51 @@
+name: BuildAll
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Get package version suffix
+      run: echo "PACKAGE_VERSION_SUFFIX=preview.$(printf %05d ${{ github.run_number }})" >> $GITHUB_ENV
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
+    - uses: actions/checkout@v3
+      with:
+        submodules: recursive
+    - name: Install .NET SDK
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 7.0.x
+        include-prerelease: true
+
+    - name: Get runtime commit hash
+      run: echo "RUNTIME_SUBMODULE_COMMIT=$(git rev-parse HEAD:modules/runtime)" >> $GITHUB_ENV
+    - name: Cache .NET libraries build output
+      uses: actions/cache@v2
+      id: cache-dotnet-libraries-build
+      with:
+        path: ./modules/runtime/artifacts/bin/microsoft.netcore.app.runtime.browser-wasm
+        key: ${{ runner.OS }}-cache-dotnet-libraries-build-${{ env.RUNTIME_SUBMODULE_COMMIT }}
+    - name: Build .NET libraries
+      run: cd modules/runtime/src/mono/wasm && make provision-wasm && make build-all
+      if: steps.cache-dotnet-libraries-build.outputs.cache-hit != 'true'
+
+    - name: Build .NET runtime for WASI
+      run: cd modules/runtime/src/mono/wasi && make
+    - name: Restore dependencies
+      run: dotnet restore
+    - name: Pack
+      run: dotnet pack dotnet-wasi-sdk.sln -c Release /p:VersionSuffix=${{ env.PACKAGE_VERSION_SUFFIX }}
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: nuget-packages
+        path: artifacts/*.nupkg
+        if-no-files-found: error
