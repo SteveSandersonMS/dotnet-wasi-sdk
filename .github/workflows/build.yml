@@ -2,7 +2,7 @@ name: BuildAll
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, ci-build ]
   pull_request:
     branches: [ main ]
 
@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev
     - uses: actions/checkout@v3
     - name: Setup .NET
       uses: actions/setup-dotnet@v2
