@@ -8,7 +8,7 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<WasiBundleAssemblies>false</WasiBundleAssemblies>
+		<WasiRunnerArgs>--tcplisten 127.0.0.1:64000 debug</WasiRunnerArgs>
 	</PropertyGroup>
 
 	<ItemGroup>

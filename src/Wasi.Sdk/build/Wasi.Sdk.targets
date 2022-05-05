@@ -47,6 +47,9 @@
 		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ee-interp.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ilgen.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libSystem.Native.a" />
@@ -120,6 +123,13 @@
 			<_WasmTransitivelyReferencedAssemblies Remove="@(_WasmTransitivelyReferencedAssemblies)" />
 			<_WasmTransitivelyReferencedAssemblies Include="$(IntermediateOutputPath)dotnet-wasi-sdk\linked\*.dll" />
 		</ItemGroup>
+		
+		<!-- Make a list of any corresponding .pdb files we can find -->
+		<ItemGroup>
+			<_WasmTransitivelyReferencedPdbs
+				Include="@(_WasmTransitivelyReferencedAssemblies -> '%(RelativeDir)%(Filename).pdb')"
+				Condition="Exists('%(RelativeDir)%(Filename).pdb')" />
+		</ItemGroup>
 
 		<!-- Now we can populate the list of files to bundle and any other WASM build inputs -->
 		<PropertyGroup>
@@ -127,7 +137,7 @@
 			<WasmOutputIntermediateFile>$(WasmOutputIntermediateDir)$(AssemblyName).wasm</WasmOutputIntermediateFile>
 		</PropertyGroup>
 		<ItemGroup>
-			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true'" Include="@(_WasmTransitivelyReferencedAssemblies)" WasmRole="assembly" />
+			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true'" Include="@(_WasmTransitivelyReferencedAssemblies);@(_WasmTransitivelyReferencedPdbs)" WasmRole="assembly" />
 			<BuildWasmInputs Include="@(WasiNativeFileReference)" />
 			<BuildWasmInputs Include="@(WasmBundleFiles)" />
 			<BuildWasmInputs Include="@(IntermediateAssembly)" />

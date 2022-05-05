@@ -17,10 +17,14 @@ WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 int main(int argc, char *argv[]) {
     dotnet_wasi_registerbundledassemblies();
 
-    if (argc > 1 && !strcmp(argv[1], "debug"))
-        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=0", -1);
-    else
+    if (argc > 1 && !strcmp(argv[1], "debug")) {
+        printf("Loading runtime with debugging enabled\n");
+        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=10", -1);
+    } 
+    else {
+        printf("Loading runtime WITHOUT debugging enabled\n");
         mono_wasm_load_runtime("", 0);
+    }
 
 #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
     // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
