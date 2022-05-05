@@ -40,6 +40,9 @@
 		<!-- For some reason neither $(OutDir) nor $(OutputPath) seem to be set-->
 		<RunArguments>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).wasm</RunArguments>
 
+		<!-- If you enable debugging, it will claim FD 3, so anything else that uses sock_accept needs to look for the DEBUGGER_FD env var and use FD>=4 if found -->
+		<RunArguments Condition="'$(WasiDebugPort)' != ''">$(RunArguments) --tcplisten 127.0.0.1:$(WasiDebugPort) --env DEBUGGER_FD=3</RunArguments>
+
 		<RunArguments Condition="'$(WasiRunnerArgs)' != ''">$(RunArguments) $(WasiRunnerArgs)</RunArguments>
 	</PropertyGroup>
 

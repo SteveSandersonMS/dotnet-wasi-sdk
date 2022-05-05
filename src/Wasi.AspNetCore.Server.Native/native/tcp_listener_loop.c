@@ -40,8 +40,10 @@ Connection* first_connection;
 void accept_any_new_connection(int interop_gchandle) {
     // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
     // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
+    int preopen_fd = getenv("DEBUGGER_FD") ? 4 : 3;
+
     int new_connection_fd;
-    int sock_accept_result = sock_accept(3, 4 /* FDFLAGS_NONBLOCK */, &new_connection_fd);
+    int sock_accept_result = sock_accept(preopen_fd, 4 /* FDFLAGS_NONBLOCK */, &new_connection_fd);
     if (!sock_accept_result) {
         Connection* new_connection = (Connection*)malloc(sizeof(Connection));
         new_connection->fd = new_connection_fd;

@@ -9,6 +9,7 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<ImplicitUsings>enable</ImplicitUsings>
+		<!--<WasiDebugPort>64000</WasiDebugPort>-->
 		<WasiRunnerArgs>--tcplisten localhost:8080 --env ASPNETCORE_URLS=http://localhost:8080</WasiRunnerArgs>
 	</PropertyGroup>
 

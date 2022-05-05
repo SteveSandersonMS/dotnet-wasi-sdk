@@ -14,15 +14,14 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
-int main(int argc, char *argv[]) {
+int main() {
     dotnet_wasi_registerbundledassemblies();
 
-    if (argc > 1 && !strcmp(argv[1], "debug")) {
+    const char* debugger_fd_env_var = getenv("DEBUGGER_FD");
+    if (debugger_fd_env_var) {
         printf("Loading runtime with debugging enabled\n");
-        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=127.0.0.1:64000,loglevel=10", -1);
-    } 
-    else {
-        printf("Loading runtime WITHOUT debugging enabled\n");
+        mono_wasm_load_runtime("--debugger-agent=transport=wasi_socket,address=0.0.0.0:0,loglevel=0", -1);
+    } else {
         mono_wasm_load_runtime("", 0);
     }
 
