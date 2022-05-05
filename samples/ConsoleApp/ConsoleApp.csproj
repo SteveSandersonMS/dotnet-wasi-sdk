@@ -8,7 +8,6 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
-		<WasiRunnerArgs>--tcplisten 127.0.0.1:64000 debug</WasiRunnerArgs>
 	</PropertyGroup>
 
 	<ItemGroup>

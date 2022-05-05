@@ -32,7 +32,7 @@
 		-->
 		<PropertyGroup>
 			<_WasiRuntimeArtifactsBin>..\..\modules\runtime\artifacts\bin\</_WasiRuntimeArtifactsBin>
-			<_WasiRuntimeArtifactsNativeRoot>\\wsl.localhost\Ubuntu\home\steve\runtime\artifacts\bin\mono\Wasi.Release\</_WasiRuntimeArtifactsNativeRoot>
+			<_WasiRuntimeArtifactsNativeRoot>$(_WasiRuntimeArtifactsBin)mono\Wasi.Release\</_WasiRuntimeArtifactsNativeRoot>
 			<_WasiRuntimeArtifactsBrowserWasmRoot>$(_WasiRuntimeArtifactsBin)microsoft.netcore.app.runtime.browser-wasm\Release\runtimes\browser-wasm\</_WasiRuntimeArtifactsBrowserWasmRoot>
 		</PropertyGroup>
 		<ItemGroup>
