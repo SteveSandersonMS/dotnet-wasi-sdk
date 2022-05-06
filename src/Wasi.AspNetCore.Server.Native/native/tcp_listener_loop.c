@@ -135,8 +135,29 @@ void run_tcp_listener_loop(MonoObject* interop) {
 }
 
 void send_response_data(int fd, char* buf, int buf_len) {
-    // TODO: Consider error handling etc. Are partial writes possible?
-    write(fd, buf, buf_len);
+    while (1) {
+        int res = write(fd, buf, buf_len);
+
+        if (res == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Clearly this is not smart, as a single bad client could block us indefinitely.
+                // We should instead just return back to .NET code telling it the write
+                // was incomplete, then it should do an async yield before trying to resend
+                // the rest
+                continue;
+            } else {
+                // TODO: Proper error reporting back into .NET
+                printf ("Error sending response data. errno: %i\n", errno);
+                break;
+            }
+        } else if (res < buf_len) {
+            // It's a partial write, so keep going
+            buf += res;
+            buf_len -= res;
+        } else {
+            break;
+        }
+    }
 }
 
 void tcp_listener_attach_internal_calls() {
