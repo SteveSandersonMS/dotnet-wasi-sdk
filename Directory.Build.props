@@ -3,7 +3,7 @@
     <PropertyGroup>
         <VersionPrefix>0.1.1</VersionPrefix>
         <VersionSuffix Condition="'$(VersionSuffix)' == ''">dev</VersionSuffix>
-        <PackageVersion>$(VersionPrefix)</PackageVersion>
+        <PackageVersion>$(VersionPrefix)-$(VersionSuffix)</PackageVersion>
 
         <PackageOutputPath>$(MSBuildThisFileDirectory)artifacts\</PackageOutputPath>
     </PropertyGroup>
