@@ -100,6 +100,6 @@ Now you can build the packages and samples in this repo:
 * Prerequisites
   * .NET 7 (`dotnet --version` should return `7.0.100-preview.4` or later)
   * Rust and the `wasm32-unknown-unknown` target (technically this is only needed for the CustomHost package)
-    * [install Rust](https://www.rust-lang.org/tools/install
+    * [Install Rust](https://www.rust-lang.org/tools/install)
     * `rustup target add wasm32-unknown-unknown`
 * Just use `dotnet build` or `dotnet run` on any of the samples or `src` projects, or open the solution in VS and Ctrl+F5 on any of the sample projects
