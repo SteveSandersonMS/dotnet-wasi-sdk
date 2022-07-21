@@ -41,7 +41,7 @@
 		<RunArguments>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).wasm</RunArguments>
 
 		<!-- If you enable debugging, it will claim FD 3, so anything else that uses sock_accept needs to look for the DEBUGGER_FD env var and use FD>=4 if found -->
-		<RunArguments Condition="'$(WasiDebugPort)' != ''">$(RunArguments) --tcplisten 127.0.0.1:$(WasiDebugPort) --env DEBUGGER_FD=3</RunArguments>
+		<RunArguments Condition="'$(WaitForDebugger)' == 'true' AND '$(WasiDebugPort)' != ''">$(RunArguments) --tcplisten 127.0.0.1:$(WasiDebugPort) --env DEBUGGER_FD=3</RunArguments>
 
 		<RunArguments Condition="'$(WasiRunnerArgs)' != ''">$(RunArguments) $(WasiRunnerArgs)</RunArguments>
 	</PropertyGroup>
@@ -55,6 +55,10 @@
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libSystem.Native.a" />
 		<UpToDateCheckInput Include="@(WasiNativeFileReference)" />
 	</ItemGroup>
