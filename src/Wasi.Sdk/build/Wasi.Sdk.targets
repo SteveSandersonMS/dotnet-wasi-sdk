@@ -39,7 +39,7 @@
 		
 		<!-- For some reason neither $(OutDir) nor $(OutputPath) seem to be set-->
 		<RunArguments>bin\$(Configuration)\$(TargetFramework)\$(AssemblyName).wasm</RunArguments>
-
+		<RunArguments Condition="'$(WaitForDebugger)' != ''">--tcplisten localhost:64000 --env DEBUGGER_FD=3 $(RunArguments)</RunArguments>
 		<RunArguments Condition="'$(WasiRunnerArgs)' != ''">$(RunArguments) $(WasiRunnerArgs)</RunArguments>
 	</PropertyGroup>
 
@@ -49,6 +49,10 @@
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ilgen.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libSystem.Native.a" />
 		<UpToDateCheckInput Include="@(WasiNativeFileReference)" />
 	</ItemGroup>

@@ -88,12 +88,13 @@ First, build the runtime. This can take quite a long time.
 * `git submodule update --init --recursive`
 * Do the following steps using Linux or WSL:
   * `sudo apt-get install build-essential cmake ninja-build python python3 zlib1g-dev`
-  * `cd modules/runtime/src/mono/wasi`
-  * `make` (takes a few minutes - there are lots of warnings like "System is unknown to cmake" and that's OK)
-  * `cd ../wasm`
+* `cd modules/runtime/src/mono/wasm`
   * `make provision-wasm` (takes about 2 minutes)
   * `make build-all` (takes 10-15 minutes)
     * If you get an error about `setlocale: LC_ALL: cannot change locale` then  run `sudo apt install language-pack-en`. This only happens on very bare-bones machines.
+* `cd ../wasi`
+  * `make` (takes a few minutes - there are lots of warnings like "System is unknown to cmake" and that's OK)
+  
 
 Now you can build the packages and samples in this repo:
 
