@@ -1,0 +1,15 @@
+default_host = "localhost:3000"
+
+[[module]]
+route = "/"
+module = "Home/bin/Debug/net7.0/Home.wasm"
+
+[[module]]
+route = "/csharp-static/..."
+module = "CSharpFileServer/bin/Debug/net7.0/CSharpFileServer.wasm"
+volumes = { "/" = "CSharpFileServer/assets" }
+
+[[module]]
+route = "/fsharp-static/..."
+module = "FSharpFileServer/bin/Debug/net7.0/FSharpFileServer.wasm"
+volumes = { "/" = "FSharpFileServer/assets" }

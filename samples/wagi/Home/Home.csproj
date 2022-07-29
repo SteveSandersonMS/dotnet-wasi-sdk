@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<!-- Only needed when referencing the dependencies as projects. For package references, these are imported automatically. -->
+	<Import Project="..\..\..\src\Wasi.Sdk\build\Wasi.Sdk.props" />
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\..\..\src\Wasi.Sdk\Wasi.Sdk.csproj" ReferenceOutputAssembly="false" />
+	</ItemGroup>
+
+	<!-- Only needed when referencing the dependencies as projects. For package references, these are imported automatically. -->
+	<Import Project="..\..\..\src\Wasi.Sdk\build\Wasi.Sdk.targets" />
+
+</Project>
