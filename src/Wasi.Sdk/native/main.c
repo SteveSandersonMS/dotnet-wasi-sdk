@@ -17,6 +17,8 @@ WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 int main() {
     dotnet_wasi_registerbundledassemblies();
 
+    /*
+    TODO: Is this still needed?
     const char* debugger_fd_env_var = getenv("DEBUGGER_FD");
     if (debugger_fd_env_var) {
         printf("Loading runtime with debugging enabled\n");
@@ -24,6 +26,8 @@ int main() {
     } else {
         mono_wasm_load_runtime("", 0);
     }
+    */
+    mono_wasm_load_runtime("", 0);
 
 #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
     // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)

@@ -50,15 +50,12 @@
 		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ee-interp.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-ilgen.a" />
-		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
-		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
-		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
-		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
-		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == ''" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
+		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libSystem.Native.a" />
 		<UpToDateCheckInput Include="@(WasiNativeFileReference)" />
 	</ItemGroup>
@@ -144,7 +141,8 @@
 			<WasmOutputIntermediateFile>$(WasmOutputIntermediateDir)$(AssemblyName).wasm</WasmOutputIntermediateFile>
 		</PropertyGroup>
 		<ItemGroup>
-			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true'" Include="@(_WasmTransitivelyReferencedAssemblies);@(_WasmTransitivelyReferencedPdbs)" WasmRole="assembly" />
+			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true'" Include="@(_WasmTransitivelyReferencedAssemblies)" WasmRole="assembly" />
+			<WasmBundleFiles Condition="'$(WasiBundleAssemblies)' == 'true' AND '$(WaitForDebugger)' == 'true'" Include="@(_WasmTransitivelyReferencedPdbs)" WasmRole="assembly" />
 			<BuildWasmInputs Include="@(WasiNativeFileReference)" />
 			<BuildWasmInputs Include="@(WasmBundleFiles)" />
 			<BuildWasmInputs Include="@(IntermediateAssembly)" />
