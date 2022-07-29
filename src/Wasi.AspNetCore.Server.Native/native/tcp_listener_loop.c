@@ -40,8 +40,10 @@ Connection* first_connection;
 void accept_any_new_connection(int interop_gchandle) {
     // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
     // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
+    int preopen_fd = getenv("DEBUGGER_FD") ? 4 : 3;
+
     int new_connection_fd;
-    int sock_accept_result = sock_accept(3, 4 /* FDFLAGS_NONBLOCK */, &new_connection_fd);
+    int sock_accept_result = sock_accept(preopen_fd, 4 /* FDFLAGS_NONBLOCK */, &new_connection_fd);
     if (!sock_accept_result) {
         Connection* new_connection = (Connection*)malloc(sizeof(Connection));
         new_connection->fd = new_connection_fd;
@@ -133,8 +135,29 @@ void run_tcp_listener_loop(MonoObject* interop) {
 }
 
 void send_response_data(int fd, char* buf, int buf_len) {
-    // TODO: Consider error handling etc. Are partial writes possible?
-    write(fd, buf, buf_len);
+    while (1) {
+        int res = write(fd, buf, buf_len);
+
+        if (res == -1) {
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                // Clearly this is not smart, as a single bad client could block us indefinitely.
+                // We should instead just return back to .NET code telling it the write
+                // was incomplete, then it should do an async yield before trying to resend
+                // the rest
+                continue;
+            } else {
+                // TODO: Proper error reporting back into .NET
+                printf ("Error sending response data. errno: %i\n", errno);
+                break;
+            }
+        } else if (res < buf_len) {
+            // It's a partial write, so keep going
+            buf += res;
+            buf_len -= res;
+        } else {
+            break;
+        }
+    }
 }
 
 void tcp_listener_attach_internal_calls() {

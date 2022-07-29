@@ -1,0 +1,12 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Attach",
+            "type": "mono",
+            "request": "attach",
+            "address": "127.0.0.1",
+            "port": 64000
+        }
+    ]
+}

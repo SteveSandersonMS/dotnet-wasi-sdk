@@ -3,6 +3,7 @@
 
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
+using System.Collections;
 using System.Runtime.CompilerServices;
 
 namespace Wasi.AspNetCore.BundledFiles;
@@ -16,7 +17,7 @@ public class WasiBundledFileProvider : IFileProvider
 
     public IDirectoryContents GetDirectoryContents(string subpath)
     {
-        throw new NotImplementedException();
+        return new BundledDirectoryContents(this, subpath);
     }
 
     public unsafe IFileInfo GetFileInfo(string subpath)
@@ -59,5 +60,36 @@ public class WasiBundledFileProvider : IFileProvider
 
         public Stream CreateReadStream()
             => new UnmanagedMemoryStream(_fileBytes, Length);
+    }
+
+    class BundledDirectoryContents : IDirectoryContents
+    {
+        private readonly IFileProvider _owner;
+        private readonly string _subpath;
+
+        public BundledDirectoryContents(IFileProvider owner, string subpath)
+        {
+            _owner = owner;
+            _subpath = subpath;
+        }
+
+        public bool Exists => _subpath == "/";
+
+        IEnumerator IEnumerable.GetEnumerator()
+            => GetEnumerator();
+
+        public IEnumerator<IFileInfo> GetEnumerator()
+        {
+            // TODO: Mechanism for enumerating everything in a bundled directory
+            // Currently this only recognizes index.html files to support UseDefaultFiles
+            if (_subpath == "/")
+            {
+                var fileInfo = _owner.GetFileInfo("/index.html");
+                if (fileInfo.Exists)
+                {
+                    yield return fileInfo;
+                }
+            }
+        }
     }
 }

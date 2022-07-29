@@ -8,6 +8,12 @@
 		<TargetFramework>net7.0</TargetFramework>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
+
+		<!--
+		<WasiDebugPort>64000</WasiDebugPort>
+		<WaitForDebugger>true</WaitForDebugger>
+		<DebugType>embedded</DebugType>
+		-->
 	</PropertyGroup>
 
 	<ItemGroup>
