@@ -25,7 +25,7 @@ internal class WasiLoggingProvider : ILoggerProvider
             this.categoryName = categoryName;
         }
 
-        public IDisposable BeginScope<TState>(TState state)
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull
             => new MyScope();
 
         public bool IsEnabled(LogLevel logLevel)
