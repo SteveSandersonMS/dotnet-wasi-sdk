@@ -31,8 +31,8 @@ jobs:
       uses: actions/cache@v2
       id: cache-dotnet-libraries-build
       with:
-        path: ./modules/runtime/artifacts/bin/microsoft.netcore.app.runtime.browser-wasm
-        key: ${{ runner.OS }}-cache-dotnet-libraries-build-${{ env.RUNTIME_SUBMODULE_COMMIT }}
+        path: [./modules/runtime/artifacts/bin/microsoft.netcore.app.runtime.browser-wasm, ./modules/runtime/artifacts/obj/wasm]
+        key: ${{ runner.OS }}-cache-dotnet-libraries-and-wasm-build-${{ env.RUNTIME_SUBMODULE_COMMIT }}
     - name: Build .NET libraries
       run: cd modules/runtime/src/mono/wasm && make provision-wasm && make build-all
       if: steps.cache-dotnet-libraries-build.outputs.cache-hit != 'true'
