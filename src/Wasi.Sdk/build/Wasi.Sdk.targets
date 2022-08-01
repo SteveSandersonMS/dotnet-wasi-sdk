@@ -212,7 +212,8 @@
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) --sysroot="$(WasiSdkRoot)\share\wasi-sysroot"</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -I"$(WasiRuntimePackRoot)\native\include"</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,--export=malloc,--export=free,--export=__heap_base,--export=__data_end</WasiSdkClangArgs>
-			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-z,stack-size=1048576,--initial-memory=524288000,--max-memory=524288000,-lwasi-emulated-mman</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-z,stack-size=1048576,--initial-memory=52428800,--max-memory=524288000,-lwasi-emulated-mman</WasiSdkClangArgs>
+			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-s</WasiSdkClangArgs> <!-- Strip debug symbols -->
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedDeclarations)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_DECLARATIONS=&quot;@(WasiAfterRuntimeLoadedDeclarations, ' ')&quot;</WasiSdkClangArgs>
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedCalls)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_CALLS=&quot;@(WasiAfterRuntimeLoadedCalls, ' ')&quot;</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -o &quot;$(WasmOutputIntermediateFile)&quot;</WasiSdkClangArgs>
