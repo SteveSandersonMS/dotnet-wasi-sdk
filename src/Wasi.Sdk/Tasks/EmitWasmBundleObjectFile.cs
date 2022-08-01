@@ -2,10 +2,10 @@
 // The .NET Foundation licenses this file to you under the MIT license.
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,6 +19,10 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
     private static byte[] HexToUtf8Lookup;
     private static byte[] NewLineAndIndentation = new[] { (byte)0x0a, (byte)0x20, (byte)0x20 };
     private CancellationTokenSource BuildTaskCancelled { get; } = new();
+
+    // We only want to emit a single copy of the data for a given content hash, but we have to track all the
+    // different filenames that may be referencing that content
+    private ICollection<IGrouping<string, ITaskItem>> _filesToBundleByObjectFileName;
 
     [Required]
     public ITaskItem[] FilesToBundle { get; set; }
@@ -58,31 +62,39 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
 
     public override bool Execute()
     {
+        // The ObjectFile (output filename) already includes a content hash. Grouping by this filename therefore
+        // produces one group per file-content. We only want to emit one copy of each file-content, and one symbol for it.
+        _filesToBundleByObjectFileName = FilesToBundle.GroupBy(f => f.GetMetadata("ObjectFile")).ToList();
+
         // We're handling the incrementalism within this task, because it needs to be based on file content hashes
         // and not on timetamps. The output filenames contain a content hash, so if any such file already exists on
         // disk with that name, we know it must be up-to-date.
-        var remainingFilesToBundle = FilesToBundle.Where(f => !File.Exists(f.GetMetadata("ObjectFile"))).ToArray();
+        var remainingObjectFilesToBundle = _filesToBundleByObjectFileName.Where(g => !File.Exists(g.Key)).ToArray();
 
         // If you're only touching the leaf project, we don't really need to tell you that.
         // But if there's more work to do it's valuable to show progress.
-        var verbose = remainingFilesToBundle.Length > 1;
+        var verbose = remainingObjectFilesToBundle.Length > 1;
         var verboseCount = 0;
 
-        Parallel.For(0, remainingFilesToBundle.Length, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = BuildTaskCancelled.Token }, i =>
+        Parallel.For(0, remainingObjectFilesToBundle.Length, new ParallelOptions { MaxDegreeOfParallelism = 4, CancellationToken = BuildTaskCancelled.Token }, i =>
         {
-            var item = remainingFilesToBundle[i];
-            
-            var outputFile = item.GetMetadata("ObjectFile");
+            var objectFile = remainingObjectFilesToBundle[i];
+
+            // Since the object filenames include a content hash, we can pick an arbitrary ITaskItem from each group,
+            // since we know each group's ITaskItems all contain the same binary data
+            var contentSourceFile = objectFile.First();
+
+            var outputFile = objectFile.Key;
             if (verbose)
             {
                 var count = Interlocked.Increment(ref verboseCount);
-                Log.LogMessage(MessageImportance.High, "{0}/{1} Bundling {2}...", count, remainingFilesToBundle.Length, Path.GetFileName(item.ItemSpec));
+                Log.LogMessage(MessageImportance.High, "{0}/{1} Bundling {2}...", count, remainingObjectFilesToBundle.Length, Path.GetFileName(contentSourceFile.ItemSpec));
             }
 
-            EmitObjectFile(item, outputFile);
+            EmitObjectFile(contentSourceFile, outputFile);
         });
 
-        BundleApiSourceCode = GetBundleFileApiSource(FilesToBundle);
+        BundleApiSourceCode = GetBundleFileApiSource(_filesToBundleByObjectFileName);
 
         return !Log.HasLoggedErrors;
     }
@@ -101,15 +113,14 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
             UseShellExecute = false,
         });
 
-        BundleFileToCSource(fileToBundle, clangProcess.StandardInput.BaseStream);
+        BundleFileToCSource(destinationObjectFile, fileToBundle, clangProcess.StandardInput.BaseStream);
         clangProcess.WaitForExit();
     }
 
-    private static string GetBundleFileApiSource(ITaskItem[] bundledFiles)
+    private static string GetBundleFileApiSource(ICollection<IGrouping<string, ITaskItem>> bundledFilesByObjectFileName)
     {
         // Emit an object file that uses all the bundle file symbols and supplies an API
         // for getting the bundled file data at runtime
-        var symbols = bundledFiles.Select(ToSafeSymbolName).ToArray();
         var result = new StringBuilder();
 
         result.AppendLine("#include <string.h>");
@@ -117,9 +128,9 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         result.AppendLine("int mono_wasm_add_assembly(const char* name, const unsigned char* data, unsigned int size);");
         result.AppendLine();
 
-        foreach (var file in bundledFiles)
+        foreach (var objectFileGroup in bundledFilesByObjectFileName)
         {
-            var symbol = ToSafeSymbolName(file);
+            var symbol = ToSafeSymbolName(objectFileGroup.Key);
             result.AppendLine($"extern const unsigned char {symbol}[];");
             result.AppendLine($"extern const int {symbol}_len;");
         }
@@ -130,14 +141,17 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         // TODO: Instead of a naive O(N) search through all bundled files, consider putting them in a
         // hashtable or at least generating a series of comparisons equivalent to a binary search
 
-        foreach (var file in bundledFiles.Where(f => !string.Equals(f.GetMetadata("WasmRole"), "assembly", StringComparison.OrdinalIgnoreCase)))
+        foreach (var objectFileGroup in bundledFilesByObjectFileName)
         {
-            var symbol = ToSafeSymbolName(file);
-            result.AppendLine($"  if (!strcmp (name, \"{file.ItemSpec.Replace("\\", "/")}\")) {{");
-            result.AppendLine($"    *out_length = {symbol}_len;");
-            result.AppendLine($"    return {symbol};");
-            result.AppendLine("  }");
-            result.AppendLine();
+            foreach (var file in objectFileGroup.Where(f => !string.Equals(f.GetMetadata("WasmRole"), "assembly", StringComparison.OrdinalIgnoreCase)))
+            {
+                var symbol = ToSafeSymbolName(objectFileGroup.Key);
+                result.AppendLine($"  if (!strcmp (name, \"{file.ItemSpec.Replace("\\", "/")}\")) {{");
+                result.AppendLine($"    *out_length = {symbol}_len;");
+                result.AppendLine($"    return {symbol};");
+                result.AppendLine("  }");
+                result.AppendLine();
+            }
         }
 
         result.AppendLine("  return NULL;");
@@ -146,10 +160,13 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         result.AppendLine();
         result.AppendLine("void dotnet_wasi_registerbundledassemblies() {");
 
-        foreach (var file in bundledFiles.Where(f => string.Equals(f.GetMetadata("WasmRole"), "assembly", StringComparison.OrdinalIgnoreCase)))
+        foreach (var objectFileGroup in bundledFilesByObjectFileName)
         {
-            var symbol = ToSafeSymbolName(file);
-            result.AppendLine($"  mono_wasm_add_assembly (\"{ Path.GetFileName(file.ItemSpec) }\", {symbol}, {symbol}_len);");
+            foreach (var file in objectFileGroup.Where(f => string.Equals(f.GetMetadata("WasmRole"), "assembly", StringComparison.OrdinalIgnoreCase)))
+            {
+                var symbol = ToSafeSymbolName(objectFileGroup.Key);
+                result.AppendLine($"  mono_wasm_add_assembly (\"{Path.GetFileName(file.ItemSpec)}\", {symbol}, {symbol}_len);");
+            }
         }
 
         result.AppendLine("}");
@@ -157,7 +174,7 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         return result.ToString();
     }
 
-    private static void BundleFileToCSource(ITaskItem fileToBundle, Stream outputStream)
+    private static void BundleFileToCSource(string objectFileName, ITaskItem fileToBundle, Stream outputStream)
     {
         // Emits a C source file in the same format as "xxd --include". Example:
         //
@@ -169,7 +186,7 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         using var inputStream = File.OpenRead(fileToBundle.ItemSpec);
         using var outputUtf8Writer = new StreamWriter(outputStream, Utf8NoBom);
 
-        var symbolName = ToSafeSymbolName(fileToBundle);
+        var symbolName = ToSafeSymbolName(objectFileName);
         outputUtf8Writer.Write($"unsigned char {symbolName}[] = {{");
         outputUtf8Writer.Flush();
 
@@ -198,24 +215,19 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
         outputUtf8Writer.WriteLine($"unsigned int {symbolName}_len = {generatedArrayLength};");
     }
 
-    private static string ToSafeSymbolName(ITaskItem fileToBundle)
+    private static string ToSafeSymbolName(string objectFileName)
     {
-        var name = Path.GetFileName(fileToBundle.ItemSpec);
+        // Since objectFileName includes a content hash, we can safely strip off the directory name
+        // as the filename is always unique enough. This avoid disclosing information about the build
+        // file structure in the resulting symbols.
+        var filename = Path.GetFileName(objectFileName);
 
         // Equivalent to the logic from "xxd --include"
         var sb = new StringBuilder();
-        foreach (var c in name)
+        foreach (var c in filename)
         {
             sb.Append(IsAlphanumeric(c) ? c : '_');
         }
-
-        // Not equivalent to xxd - append a hash of the full path to ensure uniqueness
-        // even if we have both dir1/filename and dir2/filename
-        using var hashAlg = SHA256.Create();
-        var hashBytes = hashAlg.ComputeHash(Encoding.UTF8.GetBytes(fileToBundle.ItemSpec));
-        var hashString = BitConverter.ToString(hashBytes).Replace("-", "");
-        sb.Append("_");
-        sb.Append(hashString.Substring(0, 8));
 
         return sb.ToString();
     }
