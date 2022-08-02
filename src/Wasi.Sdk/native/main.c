@@ -14,15 +14,27 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
-int main() {
-    dotnet_wasi_registerbundledassemblies();
+int is_initialized = 0;
 
+#ifdef WASI_PREINITIALIZE
+__attribute__((export_name("dotnet_wasi_sdk_preinitialize")))
+#endif
+void ensure_initialized() {
+    if (is_initialized)
+        return;
+    is_initialized = 1;
+
+    dotnet_wasi_registerbundledassemblies();
     mono_wasm_load_runtime("", 0);
 
 #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
     // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
     WASI_AFTER_RUNTIME_LOADED_CALLS
 #endif
+}
+
+int main() {
+    ensure_initialized();
 
     // TODO: Consider passing through the args
     MonoArray* args = mono_wasm_string_array_new(0);

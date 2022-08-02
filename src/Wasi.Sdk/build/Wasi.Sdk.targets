@@ -216,6 +216,7 @@
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-s</WasiSdkClangArgs> <!-- Strip debug symbols -->
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedDeclarations)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_DECLARATIONS=&quot;@(WasiAfterRuntimeLoadedDeclarations, ' ')&quot;</WasiSdkClangArgs>
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedCalls)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_CALLS=&quot;@(WasiAfterRuntimeLoadedCalls, ' ')&quot;</WasiSdkClangArgs>
+			<WasiSdkClangArgs Condition="'$(WasiPreinitialize)' == 'true'">$(WasiSdkClangArgs) -D WASI_PREINITIALIZE</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -o &quot;$(WasmOutputIntermediateFile)&quot;</WasiSdkClangArgs>
 		</PropertyGroup>
 		<MakeDir Directories="$(WasmOutputIntermediateDir)" />
@@ -239,6 +240,21 @@
 		<ItemGroup>
 			<FileWrites Include="@(WasiSdkBinOutputFiles)" />
 		</ItemGroup>
+	</Target>
+
+	<Target Name="RunWasmPreinitializer" AfterTargets="CopyWasmToOutput" Condition="'$(WasiPreinitialize)' == 'true'">
+		<!-- We have to run the preinitializer on the file in the bin dir, not the intermediate output dir, because it might depend
+		     on other files being placed in bin. In general it should execute in the same environment that the runtime app does. -->
+		<PropertyGroup>
+			<WasiPreinitializeSourceFile>@(WasiSdkBinOutputFiles)</WasiPreinitializeSourceFile>
+			<WasiPreinitializerPreopenDir Condition="'$(WasiPreinitializerPreopenDir)' == ''">$([System.IO.Path]::GetDirectoryName('$(WasiPreinitializeSourceFile)'))</WasiPreinitializerPreopenDir>
+
+			<WasiPreinitializerArgs>$(WasiPreinitializerArgs) --allow-wasi --mapdir .::$(WasiPreinitializerPreopenDir) --init-func dotnet_wasi_sdk_preinitialize</WasiPreinitializerArgs>
+			<WasiPreinitializerArgs>$(WasiPreinitializerArgs) -o &quot;$(WasiPreinitializeSourceFile).pre&quot; &quot;$(WasiPreinitializeSourceFile)&quot;</WasiPreinitializerArgs>
+		</PropertyGroup>
+		<Message Importance="high" Text="Running WebAssembly preinitializer on $(WasiPreinitializeSourceFile)" />
+		<Exec Command="wizer $(WasiPreinitializerArgs)" />
+		<Move SourceFiles="$(WasiPreinitializeSourceFile).pre" DestinationFiles="$(WasiPreinitializeSourceFile)" />
 	</Target>
 
 	<Target Name="ObtainWasiSdk" Condition="!(Exists($(WasiClang)))">
