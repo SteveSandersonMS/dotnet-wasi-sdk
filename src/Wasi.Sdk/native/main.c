@@ -1,6 +1,7 @@
 ﻿#include <string.h>
 #include <mono-wasi/driver.h>
 #include <mono/metadata/assembly.h>
+#include <mono/metadata/class.h>
 
 // This symbol's implementation is generated during the build
 const char* dotnet_wasi_getentrypointassemblyname();
@@ -14,11 +15,10 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
+// These are populated during ensure_initialized
 int is_initialized = 0;
+MonoMethod* entry_method;
 
-#ifdef WASI_PREINITIALIZE
-__attribute__((export_name("dotnet_wasi_sdk_preinitialize")))
-#endif
 void ensure_initialized() {
     if (is_initialized)
         return;
@@ -27,10 +27,21 @@ void ensure_initialized() {
     dotnet_wasi_registerbundledassemblies();
     mono_wasm_load_runtime("", 0);
 
+    MonoAssembly* entry_assembly = mono_assembly_open(dotnet_wasi_getentrypointassemblyname(), NULL);
+    entry_method = mono_wasm_assembly_get_entry_point(entry_assembly);
+
 #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
     // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
     WASI_AFTER_RUNTIME_LOADED_CALLS
 #endif
+
+    // If there's a Preinitialize method on the entry class, invoke it
+    MonoClass* entry_method_class = mono_method_get_class(entry_method);
+    MonoMethod* entry_method_class_preinitialize = mono_class_get_method_from_name(entry_method_class, "Preinitialize", 0);
+    if (entry_method_class_preinitialize) {
+        MonoObject* out_exc = NULL;
+        mono_wasm_invoke_method(entry_method_class_preinitialize, NULL, NULL, &out_exc);
+    }
 }
 
 int main() {
@@ -39,9 +50,6 @@ int main() {
     // TODO: Consider passing through the args
     MonoArray* args = mono_wasm_string_array_new(0);
     void* entry_method_params[] = { args };
-
-    MonoAssembly* assembly = mono_assembly_open(dotnet_wasi_getentrypointassemblyname(), NULL);
-    MonoMethod* entry_method = mono_wasm_assembly_get_entry_point(assembly);
     MonoObject* out_exc = NULL;
     mono_wasm_invoke_method(entry_method, NULL, entry_method_params, &out_exc);
 
@@ -51,3 +59,15 @@ int main() {
     // return mono_unbox_int(exit_code);
     return out_exc ? 1 : 0;
 }
+
+#ifdef WASI_PREINITIALIZE
+void __wasm_call_ctors();
+void __wasm_call_dtors();
+
+__attribute__((export_name("dotnet_wasi_sdk_preinitialize")))
+void dotnet_wasi_sdk_preinitialize() {
+    __wasm_call_ctors(); // Doesn't seem like it should be necessary to call these, but it is, otherwise preopens aren't available. Maybe Wizer will fix this in the future.
+    ensure_initialized();
+    __wasm_call_dtors();
+}
+#endif

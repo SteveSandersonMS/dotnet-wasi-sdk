@@ -249,7 +249,7 @@
 			<WasiPreinitializeSourceFile>@(WasiSdkBinOutputFiles)</WasiPreinitializeSourceFile>
 			<WasiPreinitializerPreopenDir Condition="'$(WasiPreinitializerPreopenDir)' == ''">$([System.IO.Path]::GetDirectoryName('$(WasiPreinitializeSourceFile)'))</WasiPreinitializerPreopenDir>
 
-			<WasiPreinitializerArgs>$(WasiPreinitializerArgs) --allow-wasi --mapdir .::$(WasiPreinitializerPreopenDir) --init-func dotnet_wasi_sdk_preinitialize</WasiPreinitializerArgs>
+			<WasiPreinitializerArgs>$(WasiPreinitializerArgs) --allow-wasi --mapdir /::$(WasiPreinitializerPreopenDir) --init-func dotnet_wasi_sdk_preinitialize</WasiPreinitializerArgs>
 			<WasiPreinitializerArgs>$(WasiPreinitializerArgs) -o &quot;$(WasiPreinitializeSourceFile).pre&quot; &quot;$(WasiPreinitializeSourceFile)&quot;</WasiPreinitializerArgs>
 		</PropertyGroup>
 		<Message Importance="high" Text="Running WebAssembly preinitializer on $(WasiPreinitializeSourceFile)" />
