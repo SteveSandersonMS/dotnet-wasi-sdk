@@ -15,41 +15,34 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
-// These are populated during ensure_initialized
 int is_initialized = 0;
 MonoMethod* entry_method;
 
-void ensure_initialized() {
-    if (is_initialized)
-        return;
-    is_initialized = 1;
-
-    dotnet_wasi_registerbundledassemblies();
-    mono_wasm_load_runtime("", 0);
-
-    #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
-        // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
-        WASI_AFTER_RUNTIME_LOADED_CALLS
-    #endif
-    
-    MonoAssembly* entry_assembly = mono_assembly_open(dotnet_wasi_getentrypointassemblyname(), NULL);
-    entry_method = mono_wasm_assembly_get_entry_point(entry_assembly);
-}
-
 int main() {
-    ensure_initialized();
+    if (!is_initialized) {
+        is_initialized = 1;
+
+        dotnet_wasi_registerbundledassemblies();
+        mono_wasm_load_runtime("", 0);
+
+        #ifdef WASI_AFTER_RUNTIME_LOADED_CALLS
+            // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
+            WASI_AFTER_RUNTIME_LOADED_CALLS
+        #endif
+        
+        MonoAssembly* entry_assembly = mono_assembly_open(dotnet_wasi_getentrypointassemblyname(), NULL);
+        entry_method = mono_wasm_assembly_get_entry_point(entry_assembly);
+    }
 
     if (getenv("WASI_PREINITIALIZE_ONLY")) {
         // If there's a Preinitialize method on the entry class, invoke it
         MonoClass* entry_method_class = mono_method_get_class(entry_method);
         MonoMethod* entry_method_class_preinitialize = mono_class_get_method_from_name(entry_method_class, "Preinitialize", 0);
+        MonoObject* out_exc = NULL;
         if (entry_method_class_preinitialize) {
-            MonoObject* out_exc = NULL;
             mono_wasm_invoke_method(entry_method_class_preinitialize, NULL, NULL, &out_exc);
-            return out_exc ? 1 : 0;
-        } else {
-            return 0;
         }
+        return out_exc ? 1 : 0;
     } else {
         // TODO: Consider passing through the args
         MonoArray* args = mono_wasm_string_array_new(0);
