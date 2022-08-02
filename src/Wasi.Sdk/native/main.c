@@ -15,13 +15,11 @@ void dotnet_wasi_registerbundledassemblies();
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 #endif
 
-int is_initialized = 0;
+// Populated during first invocation of main(), which might be preinitialization
 MonoMethod* entry_method;
 
 int main() {
-    if (!is_initialized) {
-        is_initialized = 1;
-
+    if (!entry_method) {
         dotnet_wasi_registerbundledassemblies();
         mono_wasm_load_runtime("", 0);
 
