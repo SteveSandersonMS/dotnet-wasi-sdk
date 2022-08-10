@@ -22,23 +22,18 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
 
     // We only want to emit a single copy of the data for a given content hash, but we have to track all the
     // different filenames that may be referencing that content
-    private ICollection<IGrouping<string, ITaskItem>> _filesToBundleByObjectFileName;
+    private ICollection<IGrouping<string, ITaskItem>> _filesToBundleByObjectFileName = default!;
 
     [Required]
-    public ITaskItem[] FilesToBundle { get; set; }
+    public ITaskItem[] FilesToBundle { get; set; } = default!;
 
     [Required]
-    public string ClangExecutable { get; set; }
+    public string ClangExecutable { get; set; } = default!;
 
     [Output]
-    public string BundleApiSourceCode { get; set; }
+    public string? BundleApiSourceCode { get; set; }
 
     static EmitWasmBundleObjectFile()
-    {
-        BuildHexToUtf8Lookup();
-    }
-
-    private static void BuildHexToUtf8Lookup()
     {
         // Every 6 bytes in this array represents the output for a different input byte value.
         // For example, the input byte 0x1a (26 decimal) corresponds to bytes 156-161 (26*6=156),
@@ -103,7 +98,7 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
     {
         Log.LogMessage(MessageImportance.Low, "Bundling {0} as {1}", fileToBundle.ItemSpec, destinationObjectFile);
 
-        Directory.CreateDirectory(Path.GetDirectoryName(destinationObjectFile));
+        Directory.CreateDirectory(Path.GetDirectoryName(destinationObjectFile)!);
 
         var clangProcess = Process.Start(new ProcessStartInfo
         {
@@ -111,7 +106,7 @@ public class EmitWasmBundleObjectFile : Microsoft.Build.Utilities.Task, ICancela
             Arguments = $"-xc -o \"{destinationObjectFile}\" -c -",
             RedirectStandardInput = true,
             UseShellExecute = false,
-        });
+        })!;
 
         BundleFileToCSource(destinationObjectFile, fileToBundle, clangProcess.StandardInput.BaseStream);
         clangProcess.WaitForExit();

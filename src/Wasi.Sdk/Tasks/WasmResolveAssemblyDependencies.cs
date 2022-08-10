@@ -22,16 +22,16 @@ namespace Wasi.Sdk.Tasks;
 public class WasmResolveAssemblyDependencies : Microsoft.Build.Utilities.Task
 {
     [Required]
-    public string EntryPoint { get; set; }
+    public string EntryPoint { get; set; } = default!;
 
     [Required]
-    public ITaskItem[] ApplicationAssemblies { get; set; }
+    public ITaskItem[] ApplicationAssemblies { get; set; } = default!;
 
     [Required]
-    public ITaskItem[] WasiRuntimePackAssemblies { get; set; }
+    public ITaskItem[] WasiRuntimePackAssemblies { get; set; } = default!;
 
     [Output]
-    public ITaskItem[] Dependencies { get; set; }
+    public ITaskItem[]? Dependencies { get; set; }
 
     public override bool Execute()
     {
@@ -186,14 +186,14 @@ public class WasmResolveAssemblyDependencies : Microsoft.Build.Utilities.Task
 
     internal readonly struct AssemblyEntry
     {
-        public AssemblyEntry(string path, string name, ITaskItem originalTaskItem)
+        public AssemblyEntry(string path, string name, ITaskItem? originalTaskItem)
         {
             Path = path;
             Name = name;
             _originalTaskItem = originalTaskItem;
         }
 
-        private readonly ITaskItem _originalTaskItem;
+        private readonly ITaskItem? _originalTaskItem;
         public string Path { get; }
         public string Name { get; }
     }

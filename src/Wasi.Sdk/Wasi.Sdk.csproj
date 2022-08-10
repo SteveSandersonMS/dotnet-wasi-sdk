@@ -12,6 +12,7 @@
 		<!-- OutDir is used in regular builds; BuildOutputTargetFolder is used when packing -->
 		<OutDir>tools\$(TargetFramework)\</OutDir>
 		<BuildOutputTargetFolder>tools</BuildOutputTargetFolder>
+		<Nullable>enable</Nullable>
 	</PropertyGroup>
 
 	<ItemGroup>
