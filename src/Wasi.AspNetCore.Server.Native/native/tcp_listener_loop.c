@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <assert.h>
+#include <sys/socket.h>
 #include <mono-wasi/driver.h>
 #include "dotnet_method.h"
 
@@ -26,10 +27,6 @@ DEFINE_DOTNET_METHOD(notify_opened_connection, "Wasi.AspNetCore.Server.Native.dl
 DEFINE_DOTNET_METHOD(notify_closed_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyClosedConnection");
 DEFINE_DOTNET_METHOD(notify_data_received, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyDataReceived");
 
-__attribute__((import_module("wasi_snapshot_preview1")))
-__attribute__((import_name("sock_accept")))
-int sock_accept(int fd, int fdflags, int* result_ptr);
-
 // Hold a linked list of active connections for the busy-polling
 typedef struct Connection {
     int fd;
@@ -42,17 +39,19 @@ void accept_any_new_connection(int interop_gchandle) {
     // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
     int preopen_fd = getenv("DEBUGGER_FD") ? 4 : 3;
 
-    int new_connection_fd;
-    int sock_accept_result = sock_accept(preopen_fd, 4 /* FDFLAGS_NONBLOCK */, &new_connection_fd);
-    if (!sock_accept_result) {
+    // libc's accept4 is mapped to WASI's sock_accept with some additional parameter/return mapping at https://github.com/WebAssembly/wasi-libc/blob/63e4489d01ad0262d995c6d9a5f1a1bab719c917/libc-bottom-half/sources/accept.c#L10
+    struct sockaddr addr_out_ignored;
+    socklen_t addr_len_out_ignored;
+    int new_connection_fd = accept4(preopen_fd, &addr_out_ignored, &addr_len_out_ignored, SOCK_NONBLOCK);
+    if (new_connection_fd > 0) {
         Connection* new_connection = (Connection*)malloc(sizeof(Connection));
         new_connection->fd = new_connection_fd;
         new_connection->next = first_connection;
         first_connection = new_connection;
 
         notify_opened_connection(mono_gchandle_get_target(interop_gchandle), (void*[]){ &new_connection_fd });
-    } else if (sock_accept_result != 6) {
-        printf("Fatal: sock_accept returned unexpected status %i. This may mean the host isn't listening for connections. Be sure to pass the --tcplisten parameter.\n", sock_accept_result);
+    } else if (errno != __WASI_ERRNO_AGAIN) { // __WASI_ERRNO_AGAIN means "would block so try again later"
+        printf("Fatal: TCP accept failed with errno %i. This may mean the host isn't listening for connections. Be sure to pass the --tcplisten parameter.\n", errno);
         exit(1);
     }
 }
