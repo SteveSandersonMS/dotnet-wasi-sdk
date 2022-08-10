@@ -2,9 +2,11 @@
 
 	<PropertyGroup>
 		<TargetFrameworks>net7.0;netstandard2.0</TargetFrameworks>
-		<LangVersion>latest</LangVersion>
+		<LangVersion>preview</LangVersion>
 		<GenerateDependencyFile>false</GenerateDependencyFile>
 		<CopyLocalLockFileAssemblies Condition="'$(TargetFramework)' == 'netstandard2.0'">true</CopyLocalLockFileAssemblies>
+
+		<WasiDotNetRuntimeRoot>..\..\modules\runtime\</WasiDotNetRuntimeRoot>
 
 		<!-- Suppresses the warnings about the package not having assemblies in lib/*/.dll.-->
     	<NoPackageAnalysis>true</NoPackageAnalysis>
@@ -19,6 +21,18 @@
 		<PackageReference Include="Microsoft.Build.Framework" Version="17.0.0" ExcludeAssets="Runtime" />
 		<PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.0.0" ExcludeAssets="Runtime" />
 		<PackageReference Include="System.Reflection.Metadata" Version="6.0.0" Condition="'$(TargetFramework)' == 'netstandard2.0'" />
+		<PackageReference Include="System.Reflection.MetadataLoadContext" Version="6.0.0" />
+		<PackageReference Include="System.Text.Json" Version="6.0.5" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\ManagedToNativeGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\IcallTableGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\InterpToNativeGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\SignatureMapper.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\PInvokeTableGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\LogAsErrorException.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
+		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\Utils.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 	</ItemGroup>
 
 	<Target Name="PrepareWasiWasmPack" BeforeTargets="Build">
@@ -32,7 +46,7 @@
 			- make
 		-->
 		<PropertyGroup>
-			<_WasiRuntimeArtifactsBin>..\..\modules\runtime\artifacts\bin\</_WasiRuntimeArtifactsBin>
+			<_WasiRuntimeArtifactsBin>$(WasiDotNetRuntimeRoot)artifacts\bin\</_WasiRuntimeArtifactsBin>
 			<_WasiRuntimeArtifactsNativeRoot>$(_WasiRuntimeArtifactsBin)mono\Wasi.Release\</_WasiRuntimeArtifactsNativeRoot>
 			<_WasiRuntimeArtifactsBrowserWasmRoot>$(_WasiRuntimeArtifactsBin)microsoft.netcore.app.runtime.browser-wasm\Release\runtimes\browser-wasm\</_WasiRuntimeArtifactsBrowserWasmRoot>
 		</PropertyGroup>
