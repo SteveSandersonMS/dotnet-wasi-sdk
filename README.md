@@ -104,3 +104,7 @@ Now you can build the packages and samples in this repo:
     * [Install Rust](https://www.rust-lang.org/tools/install)
     * `rustup target add wasm32-unknown-unknown`
 * Just use `dotnet build` or `dotnet run` on any of the samples or `src` projects, or open the solution in VS and Ctrl+F5 on any of the sample projects
+
+# Contributing
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
