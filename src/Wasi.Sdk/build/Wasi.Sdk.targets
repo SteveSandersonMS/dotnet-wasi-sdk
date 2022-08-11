@@ -4,6 +4,7 @@
 		<WasiSdkTaskDir Condition="'$(MSBuildRuntimeType)' == 'Core'">net7.0</WasiSdkTaskDir>
 		<WasiSdkTaskDir Condition="'$(MSBuildRuntimeType)' != 'Core'">netstandard2.0</WasiSdkTaskDir>
 		<WasiSdkTaskAssembly>$(MSBuildThisFileDirectory)..\tools\$(WasiSdkTaskDir)\Wasi.Sdk.dll</WasiSdkTaskAssembly>
+		<WasiSdkTaskAssemblyVersionTicks>$([System.IO.File]::GetLastWriteTime('$(WasiSdkTaskAssembly)').Ticks)</WasiSdkTaskAssemblyVersionTicks>
 	</PropertyGroup>
 
 	<UsingTask TaskName="Wasi.Sdk.Tasks.EmitWasmBundleObjectFile" AssemblyFile="$(WasiSdkTaskAssembly)" />
@@ -281,7 +282,7 @@
 		</PropertyGroup>
 		<ItemGroup>
 			<_WasmImportExportAssembly Include="@(_WasmTransitivelyReferencedAssemblies)">
-				<GeneratedSource>$(_WasmImportsExportsIntermediateDir)%(_WasmTransitivelyReferencedAssemblies.Filename).$([System.String]::Copy(%(_WasmTransitivelyReferencedAssemblies.FileHash)).Substring(0, 8))%(_WasmTransitivelyReferencedAssemblies.Extension).c</GeneratedSource>
+				<GeneratedSource>$(_WasmImportsExportsIntermediateDir)%(_WasmTransitivelyReferencedAssemblies.Filename).$([System.String]::Copy(%(_WasmTransitivelyReferencedAssemblies.FileHash)).Substring(0, 8)).$(WasiSdkTaskAssemblyVersionTicks)%(_WasmTransitivelyReferencedAssemblies.Extension).c</GeneratedSource>
 			</_WasmImportExportAssembly>
 		</ItemGroup>
 

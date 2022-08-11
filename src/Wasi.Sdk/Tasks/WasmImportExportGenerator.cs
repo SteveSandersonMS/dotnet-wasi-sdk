@@ -31,11 +31,7 @@ public class WasmImportExportGenerator : Microsoft.Build.Utilities.Task
         }
 
         var resolver = new PathAssemblyResolver(Assemblies.Select(a => a.ItemSpec).ToList());
-        using var metadataLoadContext = new MetadataLoadContext(resolver);
-
-        var registrationCode = new StringBuilder();
-        registrationCode.AppendLine("// This is generated code. Do not edit.");
-        registrationCode.AppendLine();
+        using var metadataLoadContext = new MetadataLoadContext(resolver, "System.Private.CoreLib");
 
         foreach (var assemblyItem in Assemblies)
         {
@@ -50,54 +46,79 @@ public class WasmImportExportGenerator : Microsoft.Build.Utilities.Task
 
             var assemblyName = assemblyItem.ItemSpec;
             var assembly = metadataLoadContext.LoadFromAssemblyPath(assemblyName);
-            
+
             var assemblyGeneratedSource = new StringBuilder();
             assemblyGeneratedSource.AppendLine("// This is generated code. Do not edit.");
             assemblyGeneratedSource.AppendLine();
 
             foreach (var type in assembly.GetTypes())
             {
-                GenerateImportsExportsForType(type, registrationCode, assemblyGeneratedSource);
+                GenerateImportsExportsForType(type, assemblyGeneratedSource);
             }
 
             File.WriteAllText(assemblyGeneratedFilePath, assemblyGeneratedSource.ToString());
         }
 
+        // TODO: Generate registration code based on which files already existed and which ones we just wrote
+        // some nonempty content into
+        var registrationCode = new StringBuilder();
+        registrationCode.AppendLine("// This is generated code. Do not edit.");
+        registrationCode.AppendLine();
         ImportExportRegistrationSourceCode = registrationCode.ToString();
+
         return true;
     }
 
-    private void GenerateImportsExportsForType(Type type, StringBuilder registrationCode, StringBuilder assemblyGeneratedSource)
+    private void GenerateImportsExportsForType(Type type, StringBuilder assemblyGeneratedSource)
     {
-        foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
+        // Only considering static methods, since there's no clear use case for instance methods as imports/exports,
+        // and people will get confused about how native code should invoke an instance method
+        foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
         {
             try
             {
-                GenerateImportsExportsForMethod(registrationCode, method);
+                GenerateImportsForMethod(assemblyGeneratedSource, method);
+                GenerateExportsForMethod(assemblyGeneratedSource, method);
             }
             catch (Exception ex)
             {
-                Log.LogMessage(MessageImportance.Low, $"Could not scan for wasm imports/exports in {method.Name}: {ex}");
+                Log.LogMessage(MessageImportance.High, $"Could not scan for imports/exports in {method.Name}: {ex}");
                 continue;
             }
         }
     }
 
-    private void GenerateImportsExportsForMethod(StringBuilder generatedCode, MethodInfo method)
+    private static void GenerateImportsForMethod(StringBuilder generatedCode, MethodInfo method)
     {
-        foreach (var customAttribute in CustomAttributeData.GetCustomAttributes(method))
+        // Look for [DllImport]
+        if ((method.Attributes & MethodAttributes.PinvokeImpl) != 0)
         {
-            // We don't reference the Wasi.Runtime assembly here, because doing so would require it to target netstandard2.0,
-            // and it's not desirable for that to be in the public API. So the type names have to be hardcoded as strings.
+            var dllimport = CustomAttributeData.GetCustomAttributes(method).First(attr => attr.AttributeType.Name == "DllImportAttribute");
+            var module = (string)dllimport.ConstructorArguments[0].Value!;
+            var entrypoint = (string)dllimport.NamedArguments.First(arg => arg.MemberName == "EntryPoint").TypedValue.Value!;
 
-            if (string.Equals("Wasi.Runtime.WasmImportAttribute", customAttribute.AttributeType.FullName, StringComparison.Ordinal))
-            {
-                generatedCode.AppendLine($"Found method {method.DeclaringType!.FullName}::{method.Name} with attribute {customAttribute.AttributeType.FullName}");
-            }
+            var signature = SignatureMapper.MethodToSignature(method)
+                ?? throw new LogAsErrorException($"Unsupported parameter type in method '{method.DeclaringType!.FullName}.{method.Name}'");
 
-            if (string.Equals("Wasi.Runtime.WasmExportAttribute", customAttribute.AttributeType.FullName, StringComparison.Ordinal))
+            generatedCode.AppendLine($"Found IMPORT of {module}.{entrypoint} from .NET method {method.DeclaringType!.FullName}::{method.Name}, signature {signature}");
+        }
+    }
+
+    private static void GenerateExportsForMethod(StringBuilder generatedCode, MethodInfo method)
+    {
+        // One way we can speed this up is to require export methods to be public. This makes sense because
+        // you're letting some external code call it. We won't require the containing type to be public though.
+        // Speed isn't actually critical because we have per-assembly incrementalism.
+        if (method.IsPublic)
+        {
+            foreach (var customAttribute in CustomAttributeData.GetCustomAttributes(method))
             {
-                generatedCode.AppendLine($"Found method {method.DeclaringType!.FullName}::{method.Name} with attribute {customAttribute.AttributeType.FullName}");
+                // We don't reference the Wasi.Runtime assembly here, because doing so would require it to target netstandard2.0,
+                // and it's not desirable for that to be in the public API. So the type names have to be hardcoded as strings.
+                if (string.Equals("Wasi.Runtime.WasmExportAttribute", customAttribute.AttributeType.FullName, StringComparison.Ordinal))
+                {
+                    generatedCode.AppendLine($"Found EXPORT method {method.DeclaringType!.FullName}::{method.Name}");
+                }
             }
         }
     }
