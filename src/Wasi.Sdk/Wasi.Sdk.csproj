@@ -30,7 +30,6 @@
 		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\IcallTableGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\InterpToNativeGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\SignatureMapper.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\PInvokeTableGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\LogAsErrorException.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\Utils.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
 	</ItemGroup>

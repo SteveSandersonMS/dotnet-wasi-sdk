@@ -282,13 +282,13 @@
 		</PropertyGroup>
 		<ItemGroup>
 			<_WasmImportExportAssembly Include="@(_WasmTransitivelyReferencedAssemblies)">
-				<GeneratedSource>$(_WasmImportsExportsIntermediateDir)%(_WasmTransitivelyReferencedAssemblies.Filename).$([System.String]::Copy(%(_WasmTransitivelyReferencedAssemblies.FileHash)).Substring(0, 8)).$(WasiSdkTaskAssemblyVersionTicks)%(_WasmTransitivelyReferencedAssemblies.Extension).c</GeneratedSource>
+				<GeneratedSource>$(_WasmImportsExportsIntermediateDir)%(_WasmTransitivelyReferencedAssemblies.Filename).$([System.String]::Copy(%(_WasmTransitivelyReferencedAssemblies.FileHash)).Substring(0, 8)).$(WasiSdkTaskAssemblyVersionTicks)%(_WasmTransitivelyReferencedAssemblies.Extension).json</GeneratedSource>
 			</_WasmImportExportAssembly>
 		</ItemGroup>
 
 		<!-- Clean up the imports-exports dir - remove anything we no longer need -->
 		<ItemGroup>
-			<_WasmImportExportFileToDelete Include="$(_WasmImportsExportsIntermediateDir)*.dll.c" />
+			<_WasmImportExportFileToDelete Include="$(_WasmImportsExportsIntermediateDir)*.dll.json" />
 			<_WasmImportExportFileToDelete Remove="%(_WasmImportExportAssembly.GeneratedSource)" />
 		</ItemGroup>
 		<Delete Files="@(_WasmImportExportFileToDelete)" />

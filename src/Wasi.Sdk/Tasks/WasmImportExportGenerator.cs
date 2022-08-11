@@ -3,12 +3,23 @@
 
 using Microsoft.Build.Framework;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
+using System.Text.Json;
 
 namespace Wasi.Sdk.Tasks;
+
+// TODO: Rename this to WasmCollectImportExports and have it only responsible for emitting .json data incrementally
+// Then add a second task WasmGenerateImportExports that incrementally only runs if any of the .json files have changed
+// and calls PInvokeGenerator's EmitPInvokeTable to write out a single .c file
+//
+// Also need to change EmitPInvokeTable so that, for unknown modules, it emits a proper Clang "import" function
+// so it ends up as a wam import.
+//
+// Haven't decided how to handle exports - might either add some support for detecting them into CollectPInvokes,
+// or could have a whole separate process for scanning for them.
 
 /// <summary>
 /// Scans a set of assemblies to locate import/export declarations, and generates the WASI SDK-compatible
@@ -44,102 +55,31 @@ public class WasmImportExportGenerator : Microsoft.Build.Utilities.Task
                 continue;
             }
 
+            // Now call into the runtime's regular PInvokeTableGenerator to collect the per-assembly info
             var assemblyName = assemblyItem.ItemSpec;
             var assembly = metadataLoadContext.LoadFromAssemblyPath(assemblyName);
-
-            var assemblyGeneratedSource = new StringBuilder();
-            var didEmitContent = false;
-            assemblyGeneratedSource.AppendLine("// This is generated code. Do not edit.");
-            assemblyGeneratedSource.AppendLine();
-
+            var assemblyPinvokes = new List<PInvoke>();
+            var assemblyPinvokeCallbacks = new List<PInvokeCallback>();
+            var assemblySignatures = new List<string>();
             foreach (var type in assembly.GetTypes())
             {
-                didEmitContent |= GenerateImportsExportsForType(type, assemblyGeneratedSource);
+                PInvokeTableGenerator.CollectPInvokes(Log, assemblyPinvokes, assemblyPinvokeCallbacks, assemblySignatures, type);
             }
 
-            if (didEmitContent)
+            var assemblyImportExportInfo = new AssemblyImportExportInfo
             {
-                File.WriteAllText(assemblyGeneratedFilePath, assemblyGeneratedSource.ToString());
-            }
-            else
-            {
-                // We still want the file even if empty. Having it empty is also a signal not to bother including
-                // it in the registration logic.
-                File.Create(assemblyGeneratedFilePath);
-            }
+                Signatures = assemblySignatures
+            };
+
+            using var assemblyIntermediateFileStream = File.OpenWrite(assemblyGeneratedFilePath);
+            JsonSerializer.Serialize(assemblyIntermediateFileStream, assemblyImportExportInfo);
         }
-
-        // TODO: Generate registration code based on which files already existed and which ones we just wrote
-        // some nonempty content into
-        var registrationCode = new StringBuilder();
-        registrationCode.AppendLine("// This is generated code. Do not edit.");
-        registrationCode.AppendLine();
-        ImportExportRegistrationSourceCode = registrationCode.ToString();
 
         return true;
     }
 
-    private bool GenerateImportsExportsForType(Type type, StringBuilder assemblyGeneratedSource)
+    private class AssemblyImportExportInfo
     {
-        // Only considering static methods, since there's no clear use case for instance methods as imports/exports,
-        // and people will get confused about how native code should invoke an instance method
-        var didEmitContent = false;
-        foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static))
-        {
-            try
-            {
-                didEmitContent |= GenerateImportsForMethod(assemblyGeneratedSource, method);
-                didEmitContent |= GenerateExportsForMethod(assemblyGeneratedSource, method);
-            }
-            catch (Exception ex)
-            {
-                Log.LogMessage(MessageImportance.High, $"Could not scan for imports/exports in {method.Name}: {ex}");
-                continue;
-            }
-        }
-
-        return didEmitContent;
-    }
-
-    private static bool GenerateImportsForMethod(StringBuilder generatedCode, MethodInfo method)
-    {
-        // Look for [DllImport]
-        if ((method.Attributes & MethodAttributes.PinvokeImpl) != 0)
-        {
-            var dllimport = CustomAttributeData.GetCustomAttributes(method).First(attr => attr.AttributeType.Name == "DllImportAttribute");
-            var module = (string)dllimport.ConstructorArguments[0].Value!;
-            var entrypoint = (string)dllimport.NamedArguments.First(arg => arg.MemberName == "EntryPoint").TypedValue.Value!;
-
-            var signature = SignatureMapper.MethodToSignature(method)
-                ?? throw new LogAsErrorException($"Unsupported parameter type in method '{method.DeclaringType!.FullName}.{method.Name}'");
-
-            generatedCode.AppendLine($"Found IMPORT of {module}.{entrypoint} from .NET method {method.DeclaringType!.FullName}::{method.Name}, signature {signature}");
-            return true;
-        }
-
-        return false;
-    }
-
-    private static bool GenerateExportsForMethod(StringBuilder generatedCode, MethodInfo method)
-    {
-        // One way we can speed this up is to require export methods to be public. This makes sense because
-        // you're letting some external code call it. We won't require the containing type to be public though.
-        // Speed isn't actually critical because we have per-assembly incrementalism.
-        var didEmitExport = false;
-        if (method.IsPublic)
-        {
-            foreach (var customAttribute in CustomAttributeData.GetCustomAttributes(method))
-            {
-                // We don't reference the Wasi.Runtime assembly here, because doing so would require it to target netstandard2.0,
-                // and it's not desirable for that to be in the public API. So the type names have to be hardcoded as strings.
-                if (string.Equals("Wasi.Runtime.WasmExportAttribute", customAttribute.AttributeType.FullName, StringComparison.Ordinal))
-                {
-                    generatedCode.AppendLine($"Found EXPORT method {method.DeclaringType!.FullName}::{method.Name}");
-                    didEmitExport = true;
-                }
-            }
-        }
-
-        return didEmitExport;
+        public List<string> Signatures { get; set; } = default!;
     }
 }
