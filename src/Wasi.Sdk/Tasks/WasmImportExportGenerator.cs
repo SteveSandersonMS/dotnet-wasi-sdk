@@ -3,8 +3,7 @@
 
 using Microsoft.Build.Framework;
 using System;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -17,57 +16,64 @@ namespace Wasi.Sdk.Tasks;
 /// </summary>
 public class WasmImportExportGenerator : Microsoft.Build.Utilities.Task
 {
-    [Required, NotNull]
-    public ITaskItem[] AssembliesToScan { get; set; } = default!;
+    [Required]
+    public ITaskItem[] Assemblies { get; set; } = default!;
 
     [Output]
-    public string? GeneratedSourceCode { get; set; }
+    public string? ImportExportRegistrationSourceCode { get; set; }
 
     public override bool Execute()
     {
-        if (AssembliesToScan!.Length == 0)
+        if (Assemblies!.Length == 0)
         {
-            Log.LogError($"{nameof(ManagedToNativeGenerator)}.{nameof(AssembliesToScan)} cannot be empty");
+            Log.LogError($"{nameof(ManagedToNativeGenerator)}.{nameof(Assemblies)} cannot be empty");
             return false;
         }
 
-        var assemblyNames = AssembliesToScan.Select(a => a.ItemSpec).ToList();
-        var resolver = new PathAssemblyResolver(assemblyNames);
+        var resolver = new PathAssemblyResolver(Assemblies.Select(a => a.ItemSpec).ToList());
         using var metadataLoadContext = new MetadataLoadContext(resolver);
 
-        var generatedCode = new StringBuilder();
-        generatedCode.AppendLine("// This is generated code. Do not edit.");
-        generatedCode.AppendLine();
+        var registrationCode = new StringBuilder();
+        registrationCode.AppendLine("// This is generated code. Do not edit.");
+        registrationCode.AppendLine();
 
-        foreach (var assemblyName in assemblyNames)
+        foreach (var assemblyItem in Assemblies)
         {
-            var assembly = metadataLoadContext.LoadFromAssemblyPath(assemblyName);
-
-            var referencedAssemblies = assembly.GetReferencedAssemblies();
-            if (!referencedAssemblies.Any(r => string.Equals("Wasi.Runtime", r.Name, StringComparison.Ordinal)))
+            // If the per-assembly generated file already exists, we can skip the assembly. The generated file path
+            // includes a content hash, so its existence shows we're up-to-date
+            var assemblyGeneratedFilePath = assemblyItem.GetMetadata("GeneratedSource")
+                ?? throw new InvalidOperationException($"Item '{assemblyItem.ItemSpec}' lacks required metadata 'GeneratedSource'");
+            if (File.Exists(assemblyGeneratedFilePath))
             {
-                // If there's no reference to Wasi.Runtime, skip scanning this assembly, since
-                // we know it can't include any of the import/export attributes
-                break;
+                continue;
             }
+
+            var assemblyName = assemblyItem.ItemSpec;
+            var assembly = metadataLoadContext.LoadFromAssemblyPath(assemblyName);
+            
+            var assemblyGeneratedSource = new StringBuilder();
+            assemblyGeneratedSource.AppendLine("// This is generated code. Do not edit.");
+            assemblyGeneratedSource.AppendLine();
 
             foreach (var type in assembly.GetTypes())
             {
-                GenerateImportsExportsForType(generatedCode, type);
+                GenerateImportsExportsForType(type, registrationCode, assemblyGeneratedSource);
             }
+
+            File.WriteAllText(assemblyGeneratedFilePath, assemblyGeneratedSource.ToString());
         }
 
-        GeneratedSourceCode = generatedCode.ToString();
+        ImportExportRegistrationSourceCode = registrationCode.ToString();
         return true;
     }
 
-    private void GenerateImportsExportsForType(StringBuilder generatedCode, Type type)
+    private void GenerateImportsExportsForType(Type type, StringBuilder registrationCode, StringBuilder assemblyGeneratedSource)
     {
         foreach (var method in type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance))
         {
             try
             {
-                GenerateImportsExportsForMethod(generatedCode, method);
+                GenerateImportsExportsForMethod(registrationCode, method);
             }
             catch (Exception ex)
             {

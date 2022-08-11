@@ -137,6 +137,15 @@
 				Include="@(_WasmTransitivelyReferencedAssemblies -> '%(RelativeDir)%(Filename).pdb')"
 				Condition="Exists('%(RelativeDir)%(Filename).pdb')" />
 		</ItemGroup>
+		
+		<!-- Multiple parts of the process care about file hashes for the assemblies. Compute this once up front. -->
+		<GetFileHash Files="@(_WasmTransitivelyReferencedAssemblies)">
+			<Output TaskParameter="Items" ItemName="_WasmTransitivelyReferencedAssembliesWithHash" />
+		</GetFileHash>
+		<ItemGroup>
+			<_WasmTransitivelyReferencedAssemblies Remove="@(_WasmTransitivelyReferencedAssemblies)" />
+			<_WasmTransitivelyReferencedAssemblies Include="@(_WasmTransitivelyReferencedAssembliesWithHash)" />
+		</ItemGroup>
 
 		<!-- Now we can populate the list of files to bundle and any other WASM build inputs -->
 		<PropertyGroup>
@@ -160,11 +169,13 @@
 		</PropertyGroup>
 
 		<!-- Get the file hashes of everything in @(WasmBundleFiles), then pass it all to EmitWasmBundleObjectFile. This
-		     will emit corresponding .o files for anything we don't already have on disk. -->
-		<GetFileHash Files="@(WasmBundleFiles)">
+		     will emit corresponding .o files for anything we don't already have on disk. Note that we skip re-hashing
+			 anything that already has a hash, such as the assemblies. -->
+		<GetFileHash Files="@(WasmBundleFiles)" Condition="'%(FileHash)' == ''">
 			<Output TaskParameter="Items" ItemName="WasmBundleFilesWithHashes" />
 		</GetFileHash>
 		<ItemGroup>
+			<WasmBundleFilesWithHashes Include="@(WasmBundleFiles)" Condition="'%(FileHash)' != ''" />
 			<WasmBundleFilesWithHashes Update="@(WasmBundleFilesWithHashes)">
 				<ObjectFile>$(_WasmBundleObjectsIntermediateDir)%(WasmBundleFilesWithHashes.Filename)%(WasmBundleFilesWithHashes.Extension).$([System.String]::Copy(%(WasmBundleFilesWithHashes.FileHash)).Substring(0, 8)).o</ObjectFile>
 			</WasmBundleFilesWithHashes>
@@ -265,11 +276,25 @@
 
 	<Target Name="GenerateWasmImportsExports">
 		<PropertyGroup>
-			<_WasmImportsExportsGeneratedSource>$(WasmOutputIntermediateDir)imports-exports.c</_WasmImportsExportsGeneratedSource>
+			<_WasmImportsExportsIntermediateDir>$(WasmOutputIntermediateDir)imports-exports\</_WasmImportsExportsIntermediateDir>
+			<_WasmImportsExportsGeneratedSource>$(_WasmImportsExportsIntermediateDir)registration.c</_WasmImportsExportsGeneratedSource>
 		</PropertyGroup>
-		
-		<WasmImportExportGenerator AssembliesToScan="@(_WasmTransitivelyReferencedAssemblies)">
-			<Output TaskParameter="GeneratedSourceCode" ItemName="_WasiImportsOutputsSourceCode" />
+		<ItemGroup>
+			<_WasmImportExportAssembly Include="@(_WasmTransitivelyReferencedAssemblies)">
+				<GeneratedSource>$(_WasmImportsExportsIntermediateDir)%(_WasmTransitivelyReferencedAssemblies.Filename).$([System.String]::Copy(%(_WasmTransitivelyReferencedAssemblies.FileHash)).Substring(0, 8))%(_WasmTransitivelyReferencedAssemblies.Extension).c</GeneratedSource>
+			</_WasmImportExportAssembly>
+		</ItemGroup>
+
+		<!-- Clean up the imports-exports dir - remove anything we no longer need -->
+		<ItemGroup>
+			<_WasmImportExportFileToDelete Include="$(_WasmImportsExportsIntermediateDir)*.dll.c" />
+			<_WasmImportExportFileToDelete Remove="%(_WasmImportExportAssembly.GeneratedSource)" />
+		</ItemGroup>
+		<Delete Files="@(_WasmImportExportFileToDelete)" />
+
+		<!-- Generate any new files -->
+		<WasmImportExportGenerator Assemblies="@(_WasmImportExportAssembly)">
+			<Output TaskParameter="ImportExportRegistrationSourceCode" ItemName="_WasiImportsOutputsSourceCode" />
 		</WasmImportExportGenerator>
 
 		<WriteLinesToFile File="$(_WasmImportsExportsGeneratedSource)"
