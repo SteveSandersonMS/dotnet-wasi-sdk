@@ -8,6 +8,7 @@
 
 	<UsingTask TaskName="Wasi.Sdk.Tasks.EmitWasmBundleObjectFile" AssemblyFile="$(WasiSdkTaskAssembly)" />
 	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmResolveAssemblyDependencies" AssemblyFile="$(WasiSdkTaskAssembly)" />
+	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmImportExportGenerator" AssemblyFile="$(WasiSdkTaskAssembly)" />
 	
 	<PropertyGroup>
 		<!-- Keep this block all in sync manually, since URLs can be arbitrary -->
@@ -29,6 +30,7 @@
 			$(CopyWasmToOutputDependsOn);
 			ObtainWasiSdk;
 			PrepareBuildWasmInputs;
+			GenerateWasmImportsExports;
 			BuildWasm;
 		</CopyWasmToOutputDependsOn>
 	</PropertyGroup>
@@ -259,6 +261,21 @@
 		<MakeDir Directories="$(WasiSdkRoot)" />
 		<Exec Command="tar -xf &quot;@(WasiSdkDownloadTempFile)&quot; -C . --strip-components=1" WorkingDirectory="$(WasiSdkRoot)" />
 		<RemoveDir Directories="$(WasiSdkDownloadTempDir)" />
+	</Target>
+
+	<Target Name="GenerateWasmImportsExports">
+		<PropertyGroup>
+			<_WasmImportsExportsGeneratedSource>$(WasmOutputIntermediateDir)imports-exports.c</_WasmImportsExportsGeneratedSource>
+		</PropertyGroup>
+		
+		<WasmImportExportGenerator AssembliesToScan="@(_WasmTransitivelyReferencedAssemblies)">
+			<Output TaskParameter="GeneratedSourceCode" ItemName="_WasiImportsOutputsSourceCode" />
+		</WasmImportExportGenerator>
+
+		<WriteLinesToFile File="$(_WasmImportsExportsGeneratedSource)"
+			Overwrite="true"
+			Lines="@(_WasiImportsOutputsSourceCode)"
+			WriteOnlyWhenDifferent="true" />
 	</Target>
 
 </Project>

@@ -32,6 +32,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "atmo", "atmo", "{874A0D81-B
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AspNetCoreOnAtmo", "samples\atmo\AspNetCoreOnAtmo\AspNetCoreOnAtmo.csproj", "{64B1732A-3C97-4745-B74F-F77921CC34F8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wasi.Runtime", "src\Wasi.Runtime\Wasi.Runtime.csproj", "{B34AC965-E3DE-4D18-98B8-17C8A9D644D3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -78,6 +80,10 @@ Global
 		{64B1732A-3C97-4745-B74F-F77921CC34F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{64B1732A-3C97-4745-B74F-F77921CC34F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{64B1732A-3C97-4745-B74F-F77921CC34F8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B34AC965-E3DE-4D18-98B8-17C8A9D644D3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B34AC965-E3DE-4D18-98B8-17C8A9D644D3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B34AC965-E3DE-4D18-98B8-17C8A9D644D3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B34AC965-E3DE-4D18-98B8-17C8A9D644D3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -94,6 +100,7 @@ Global
 		{FCEF466A-8987-4309-9964-256446764961} = {03FBB6C8-E4A9-4681-93EB-CC98F01A4DAD}
 		{874A0D81-B483-46E9-B3B1-C69660B2AD41} = {CB438E7A-1E2B-4F84-9DD8-0C0E8B1BF3B3}
 		{64B1732A-3C97-4745-B74F-F77921CC34F8} = {874A0D81-B483-46E9-B3B1-C69660B2AD41}
+		{B34AC965-E3DE-4D18-98B8-17C8A9D644D3} = {03FBB6C8-E4A9-4681-93EB-CC98F01A4DAD}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {AAE5B3CC-04B7-406F-A2D4-19AA589238D6}
