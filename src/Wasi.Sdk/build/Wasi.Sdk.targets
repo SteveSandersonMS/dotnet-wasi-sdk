@@ -172,11 +172,11 @@
 		<!-- Get the file hashes of everything in @(WasmBundleFiles), then pass it all to EmitWasmBundleObjectFile. This
 		     will emit corresponding .o files for anything we don't already have on disk. Note that we skip re-hashing
 			 anything that already has a hash, such as the assemblies. -->
-		<GetFileHash Files="@(WasmBundleFiles)" Condition="'%(FileHash)' == ''">
+		<GetFileHash Files="@(WasmBundleFiles)" Condition="'%(WasmBundleFiles.FileHash)' == ''">
 			<Output TaskParameter="Items" ItemName="WasmBundleFilesWithHashes" />
 		</GetFileHash>
 		<ItemGroup>
-			<WasmBundleFilesWithHashes Include="@(WasmBundleFiles)" Condition="'%(FileHash)' != ''" />
+			<WasmBundleFilesWithHashes Include="@(WasmBundleFiles)" Condition="'%(WasmBundleFiles.FileHash)' != ''" />
 			<WasmBundleFilesWithHashes Update="@(WasmBundleFilesWithHashes)">
 				<ObjectFile>$(_WasmBundleObjectsIntermediateDir)%(WasmBundleFilesWithHashes.Filename)%(WasmBundleFilesWithHashes.Extension).$([System.String]::Copy(%(WasmBundleFilesWithHashes.FileHash)).Substring(0, 8)).o</ObjectFile>
 			</WasmBundleFilesWithHashes>
