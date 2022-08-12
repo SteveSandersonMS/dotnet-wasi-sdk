@@ -305,11 +305,14 @@
 			<!-- I expect it's the name of the object files inside them, however it's not easy to get that -->
 			<!-- info so hardcoding it for now. -->
 			<_WasiLinkedModules Include="libSystem.Native" />
-			<_WasiLinkedModules Include="libSystem.Globalization.Native" />
+
+			<!-- The runtime does special stuff with this, also in src/mono/wasm -->
+			<_WasiSkipModules Include="libSystem.Globalization.Native" />
 		</ItemGroup>
 		<WasmGenerateImportsExports
 			Assemblies="@(_WasmImportExportAssembly)"
-			LinkedModules="@(_WasiLinkedModules)">
+			LinkedModules="@(_WasiLinkedModules)"
+			SkipModules="@(_WasiSkipModules)">
 			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
 		</WasmGenerateImportsExports>
 

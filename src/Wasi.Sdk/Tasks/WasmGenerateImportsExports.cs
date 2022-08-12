@@ -4,6 +4,7 @@
 using Microsoft.Build.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -27,6 +28,9 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
     // For all other pinvokes, we will emit it as a WASM import
     [Required, NotNull]
     public string[]? LinkedModules { get; set; }
+
+    [Required, NotNull]
+    public string[]? SkipModules { get; set; }
 
     [Output]
     public string? GeneratedCode { get; set; }
@@ -65,7 +69,11 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
 
         using var outStream = new MemoryStream();
         using var outStreamWriter = new StreamWriter(outStream) {  AutoFlush = true };
-        var pinvokeModules = LinkedModules.ToDictionary(x => x, x => x);
+        var pinvokeModules = LinkedModules.ToDictionary(x => x, x => true);
+        foreach (var skipModule in SkipModules)
+        {
+            pinvokeModules[skipModule] = false;
+        }
         PInvokeTableGenerator.EmitPInvokeTable(Log, outStreamWriter, pinvokeModules, allPinvokes, generateImportsForUnmatchedModules: true);
         GeneratedCode = Encoding.UTF8.GetString(outStream.GetBuffer(), 0, (int)outStream.Length);
 

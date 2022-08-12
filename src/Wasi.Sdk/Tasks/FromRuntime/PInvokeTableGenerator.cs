@@ -26,9 +26,9 @@ internal sealed class PInvokeTableGenerator
 
     public IEnumerable<string> GenPInvokeTable(string[] pinvokeModules, string[] assemblies, string outputPath)
     {
-        var modules = new Dictionary<string, string>();
+        var modules = new Dictionary<string, bool>();
         foreach (var module in pinvokeModules)
-            modules[module] = module;
+            modules[module] = true;
 
         var signatures = new List<string>();
 
@@ -116,7 +116,7 @@ internal sealed class PInvokeTableGenerator
         }
     }
 
-    public static void EmitPInvokeTable(TaskLoggingHelper log, StreamWriter w, Dictionary<string, string> modules, List<PInvoke> pinvokes, bool generateImportsForUnmatchedModules)
+    public static void EmitPInvokeTable(TaskLoggingHelper log, StreamWriter w, Dictionary<string, bool> modules, List<PInvoke> pinvokes, bool generateImportsForUnmatchedModules)
     {
         w.WriteLine("// GENERATED FILE, DO NOT MODIFY");
         w.WriteLine();
@@ -131,6 +131,12 @@ internal sealed class PInvokeTableGenerator
         {
             var candidates = group.Distinct(comparer).ToArray();
             PInvoke first = candidates[0];
+            var isInSkippedModule = modules.TryGetValue(first.Module, out var shouldInclude) && !shouldInclude;
+            if (isInSkippedModule)
+            {
+                continue;
+            }
+
             if (ShouldTreatAsVariadic(candidates))
             {
                 string imports = string.Join(Environment.NewLine,
@@ -166,6 +172,9 @@ internal sealed class PInvokeTableGenerator
                 allModuleNames.Add(moduleName);
             }
         }
+
+        // Ignore any modules explicitly set to be ignored
+        allModuleNames.RemoveWhere(m => modules.TryGetValue(m, out var shouldInclude) && !shouldInclude);
 
         foreach (var module in allModuleNames)
         {
@@ -231,7 +240,7 @@ internal sealed class PInvokeTableGenerator
         }
     }
 
-    private static string CreateSymbolNameForPInvoke(Dictionary<string, string> linkedModules, string module, string entryPoint)
+    private static string CreateSymbolNameForPInvoke(Dictionary<string, bool> linkedModules, string module, string entryPoint)
     {
         return linkedModules.ContainsKey(module)
             ? FixupSymbolName(entryPoint) // Must match the export from the linked module
@@ -309,7 +318,7 @@ internal sealed class PInvokeTableGenerator
         return false;
     }
 
-    private static string? GenPInvokeDecl(TaskLoggingHelper log, Dictionary<string, string> linkedModules, PInvoke pinvoke)
+    private static string? GenPInvokeDecl(TaskLoggingHelper log, Dictionary<string, bool> linkedModules, PInvoke pinvoke)
     {
         var sb = new StringBuilder();
         var method = pinvoke.Method;
