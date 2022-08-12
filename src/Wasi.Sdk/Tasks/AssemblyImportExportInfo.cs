@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -54,6 +55,17 @@ internal class AssemblyImportExportInfo
         };
     }
 
+    static string GetOverloadIdentifier(MethodInfo methodInfo)
+    {
+        var sb = new StringBuilder();
+        foreach (var param in methodInfo.GetParameters())
+        {
+            sb.Append(param.ParameterType.FullName);
+            sb.Append(',');
+        }
+        return sb.ToString();
+    }
+
     public class PInvokeConverter : JsonConverter<PInvoke>
     {
         private readonly MetadataLoadContext _metadataLoadContext;
@@ -79,7 +91,11 @@ internal class AssemblyImportExportInfo
             ReadToken(ref reader, JsonTokenType.StartArray);
             var methodModuleName = reader.GetString();
             reader.Read();
-            var methodMetadataToken = reader.GetInt32();
+            var methodDeclaringTypeName = reader.GetString();
+            reader.Read();
+            var methodName = reader.GetString();
+            reader.Read();
+            var overloadIdentifier = reader.GetString();
             reader.Read();
             ReadToken(ref reader, JsonTokenType.EndArray);
 
@@ -97,8 +113,9 @@ internal class AssemblyImportExportInfo
             }
 
             var assembly = _metadataLoadContext.LoadFromAssemblyName(methodModuleName!);
-            //var methodInfo = (MethodInfo)assembly.Modules.Select(m => m.ResolveMethod(methodMetadataToken)).First()!;
-            var methodInfo = (MethodInfo)null!;
+            var type = assembly.GetType(methodDeclaringTypeName!)!;
+            var overloads = type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance).Where(m => string.Equals(m.Name, methodName, StringComparison.Ordinal));
+            var methodInfo = overloads.Single(m => GetOverloadIdentifier(m) == overloadIdentifier);
 
             return new PInvoke(entryPoint!, module!, methodInfo) { Skip = skip };
         }
@@ -114,7 +131,9 @@ internal class AssemblyImportExportInfo
             writer.WritePropertyName(nameof(value.Method));
             writer.WriteStartArray();
             writer.WriteStringValue(value.Method.Module.Assembly.GetName().Name);
-            writer.WriteNumberValue(value.Method.MetadataToken);
+            writer.WriteStringValue(value.Method.DeclaringType!.FullName);
+            writer.WriteStringValue(value.Method.Name);
+            writer.WriteStringValue(GetOverloadIdentifier(value.Method));
             writer.WriteEndArray();
 
             if (value.Skip)
@@ -143,11 +162,15 @@ internal class AssemblyImportExportInfo
             var entryName = reader.GetString();
             reader.Read();
 
-            ReadPropertyName(ref reader, nameof(PInvokeCallback.Method));
+            ReadPropertyName(ref reader, nameof(PInvoke.Method));
             ReadToken(ref reader, JsonTokenType.StartArray);
             var methodModuleName = reader.GetString();
             reader.Read();
-            var methodMetadataToken = reader.GetInt32();
+            var methodDeclaringTypeName = reader.GetString();
+            reader.Read();
+            var methodName = reader.GetString();
+            reader.Read();
+            var overloadIdentifier = reader.GetString();
             reader.Read();
             ReadToken(ref reader, JsonTokenType.EndArray);
 
@@ -157,8 +180,9 @@ internal class AssemblyImportExportInfo
             }
 
             var assembly = _metadataLoadContext.LoadFromAssemblyName(methodModuleName!);
-            //var methodInfo = (MethodInfo)assembly.Modules.Select(m => m.ResolveMethod(methodMetadataToken)).First()!;
-            var methodInfo = (MethodInfo)null!;
+            var type = assembly.GetType(methodDeclaringTypeName!)!;
+            var overloads = type.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static | BindingFlags.Instance).Where(m => string.Equals(m.Name, methodName, StringComparison.Ordinal));
+            var methodInfo = overloads.Single(m => GetOverloadIdentifier(m) == overloadIdentifier);
 
             return new PInvokeCallback(methodInfo) { EntryName = entryName };
         }
@@ -173,7 +197,9 @@ internal class AssemblyImportExportInfo
             writer.WritePropertyName(nameof(value.Method));
             writer.WriteStartArray();
             writer.WriteStringValue(value.Method.Module.Assembly.GetName().Name);
-            writer.WriteNumberValue(value.Method.MetadataToken);
+            writer.WriteStringValue(value.Method.DeclaringType!.FullName);
+            writer.WriteStringValue(value.Method.Name);
+            writer.WriteStringValue(GetOverloadIdentifier(value.Method));
             writer.WriteEndArray();
 
             writer.WriteEndObject();
