@@ -298,7 +298,9 @@
 		<WasmCollectImportsExports Assemblies="@(_WasmImportExportAssembly)" />
 
 		<!-- TODO: Make incremental -->
-		<WasmGenerateImportsExports Assemblies="@(_WasmImportExportAssembly)">
+		<WasmGenerateImportsExports
+			Assemblies="@(_WasmImportExportAssembly)"
+			LinkedModules="libSystem.Native">
 			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
 		</WasmGenerateImportsExports>
 

@@ -4,9 +4,11 @@
 using Microsoft.Build.Framework;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Text.Json;
 
 namespace Wasi.Sdk.Tasks;
@@ -20,6 +22,11 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
 {
     [Required]
     public ITaskItem[] Assemblies { get; set; } = default!;
+
+    // For any pinvoke targeting one of these modules, we assume there will be a matching symbol in the compilation
+    // For all other pinvokes, we will emit it as a WASM import
+    [Required, NotNull]
+    public string[]? LinkedModules { get; set; }
 
     [Output]
     public string? GeneratedCode { get; set; }
@@ -55,6 +62,12 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
             allPinvokeCallbacks.AddRange(assemblyInfo.PInvokeCallbacks);
             allSignatures.AddRange(assemblyInfo.Signatures);
         }
+
+        using var outStream = new MemoryStream();
+        using var outStreamWriter = new StreamWriter(outStream);
+        var pinvokeModules = LinkedModules.ToDictionary(x => x, x => x);
+        PInvokeTableGenerator.EmitPInvokeTable(Log, outStreamWriter, pinvokeModules, allPinvokes);
+        GeneratedCode = Encoding.UTF8.GetString(outStream.GetBuffer(), 0, (int)outStream.Length);
 
         return true;
     }
