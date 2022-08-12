@@ -64,7 +64,7 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
         }
 
         using var outStream = new MemoryStream();
-        using var outStreamWriter = new StreamWriter(outStream);
+        using var outStreamWriter = new StreamWriter(outStream) {  AutoFlush = true };
         var pinvokeModules = LinkedModules.ToDictionary(x => x, x => x);
         PInvokeTableGenerator.EmitPInvokeTable(Log, outStreamWriter, pinvokeModules, allPinvokes, generateImportsForUnmatchedModules: true);
         GeneratedCode = Encoding.UTF8.GetString(outStream.GetBuffer(), 0, (int)outStream.Length);
