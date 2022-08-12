@@ -32,6 +32,7 @@
 			$(CopyWasmToOutputDependsOn);
 			ObtainWasiSdk;
 			PrepareBuildWasmInputs;
+			CollectWasmImportsExports;
 			GenerateWasmImportsExports;
 			BuildWasm;
 		</CopyWasmToOutputDependsOn>
@@ -276,7 +277,7 @@
 		<RemoveDir Directories="$(WasiSdkDownloadTempDir)" />
 	</Target>
 
-	<Target Name="GenerateWasmImportsExports">
+	<Target Name="CollectWasmImportsExports">
 		<PropertyGroup>
 			<_WasmImportsExportsIntermediateDir>$(WasmOutputIntermediateDir)imports-exports\</_WasmImportsExportsIntermediateDir>
 			<_WasmImportsExportsGeneratedSource>$(_WasmImportsExportsIntermediateDir)registration.c</_WasmImportsExportsGeneratedSource>
@@ -296,18 +297,19 @@
 
 		<!-- Generate any new files -->
 		<WasmCollectImportsExports Assemblies="@(_WasmImportExportAssembly)" />
+	</Target>
 
-		<!-- TODO: Make incremental -->
+	<Target Name="GenerateWasmImportsExports" Inputs="@(_WasmImportExportAssembly->'%(GeneratedSource)')" Outputs="$(_WasmImportsExportsGeneratedSource)">
 		<WasmGenerateImportsExports
 			Assemblies="@(_WasmImportExportAssembly)"
 			LinkedModules="libSystem.Native">
 			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
 		</WasmGenerateImportsExports>
 
+		<!-- Don't WriteOnlyWhenDifferent because we want to make sure this doesn't run again until the inputs change -->
 		<WriteLinesToFile File="$(_WasmImportsExportsGeneratedSource)"
 			Overwrite="true"
-			Lines="@(_WasiImportsOutputsGeneratedCode)"
-			WriteOnlyWhenDifferent="true" />
+			Lines="@(_WasiImportsOutputsGeneratedCode)" />
 	</Target>
 
 </Project>
