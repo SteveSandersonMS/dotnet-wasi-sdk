@@ -25,15 +25,6 @@
 		<PackageReference Include="System.Text.Json" Version="6.0.5" />
 	</ItemGroup>
 
-	<ItemGroup>
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\ManagedToNativeGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\IcallTableGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\InterpToNativeGenerator.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\WasmAppBuilder\SignatureMapper.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\LogAsErrorException.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-		<Compile Include="$(WasiDotNetRuntimeRoot)src\tasks\Common\Utils.cs" Link="WasmAppBuilder\%(Filename)%(Extension)" />
-	</ItemGroup>
-
 	<Target Name="PrepareWasiWasmPack" BeforeTargets="Build">
 		<!--
 			These files become available when building modules/runtime

@@ -35,7 +35,7 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
     {
         if (Assemblies!.Length == 0)
         {
-            Log.LogError($"{nameof(ManagedToNativeGenerator)}.{nameof(Assemblies)} cannot be empty");
+            Log.LogError($"{nameof(WasmGenerateImportsExports)}.{nameof(Assemblies)} cannot be empty");
             return false;
         }
 

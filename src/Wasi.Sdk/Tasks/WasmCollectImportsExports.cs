@@ -10,16 +10,6 @@ using System.Text.Json;
 
 namespace Wasi.Sdk.Tasks;
 
-// TODO: Rename this to WasmCollectImportExports and have it only responsible for emitting .json data incrementally
-// Then add a second task WasmGenerateImportExports that incrementally only runs if any of the .json files have changed
-// and calls PInvokeGenerator's EmitPInvokeTable to write out a single .c file
-//
-// Also need to change EmitPInvokeTable so that, for unknown modules, it emits a proper Clang "import" function
-// so it ends up as a wam import.
-//
-// Haven't decided how to handle exports - might either add some support for detecting them into CollectPInvokes,
-// or could have a whole separate process for scanning for them.
-
 /// <summary>
 /// Scans a set of assemblies to locate import/export declarations, and generates the WASI SDK-compatible
 /// C code to wire them up.
@@ -33,7 +23,7 @@ public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
     {
         if (Assemblies!.Length == 0)
         {
-            Log.LogError($"{nameof(ManagedToNativeGenerator)}.{nameof(Assemblies)} cannot be empty");
+            Log.LogError($"{nameof(WasmCollectImportsExports)}.{nameof(Assemblies)} cannot be empty");
             return false;
         }
 
