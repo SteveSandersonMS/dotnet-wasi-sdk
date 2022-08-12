@@ -189,7 +189,7 @@ internal sealed class PInvokeTableGenerator
             foreach (var l in assemblies_pinvokes)
             {
                 var symbolName = CreateSymbolNameForPInvoke(modules, module, l.Key);
-                var tableEntry = "{\"" + symbolName + "\", " + symbolName + "}, " +
+                var tableEntry = "{\"" + FixupSymbolName(l.Key) + "\", " + symbolName + "}, " +
                                 "// " + string.Join(", ", l.Select(c => c.Method.DeclaringType!.Module!.Assembly!.GetName()!.Name!).Distinct().OrderBy(n => n));
                 w.WriteLine(tableEntry);
             }
