@@ -39,6 +39,7 @@ public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
 
         var resolver = new PathAssemblyResolver(Assemblies.Select(a => a.ItemSpec).ToList());
         using var metadataLoadContext = new MetadataLoadContext(resolver, "System.Private.CoreLib");
+        var jsonOptions = AssemblyImportExportInfo.CreateSerializerOptions(metadataLoadContext);
 
         foreach (var assemblyItem in Assemblies)
         {
@@ -65,7 +66,7 @@ public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
             using var assemblyIntermediateFileStream = File.OpenWrite(assemblyGeneratedFilePath);
             if (!extractedInfo.IsEmpty)
             {
-                JsonSerializer.Serialize(assemblyIntermediateFileStream, extractedInfo, AssemblyImportExportInfo.CreateSerializerOptions(metadataLoadContext));
+                JsonSerializer.Serialize(assemblyIntermediateFileStream, extractedInfo, jsonOptions);
             }
         }
 

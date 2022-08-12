@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
@@ -18,6 +19,27 @@ internal class AssemblyImportExportInfo
 
     [JsonIgnore]
     public bool IsEmpty => !(PInvokes.Any() || PInvokeCallbacks.Any() || Signatures.Any());
+
+    private static void ReadToken(ref Utf8JsonReader reader, JsonTokenType assertType)
+    {
+        if (reader.TokenType != assertType)
+        {
+            throw new InvalidOperationException($"Expected token type {assertType} but found {reader.TokenType}");
+        }
+
+        reader.Read();
+    }
+
+    private static void ReadPropertyName(ref Utf8JsonReader reader, string propertyName)
+    {
+        var stringValue = reader.GetString();
+        if (!string.Equals(stringValue, propertyName, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException($"Expected property name {propertyName} but found {stringValue}");
+        }
+
+        ReadToken(ref reader, JsonTokenType.PropertyName);
+    }
 
     public static JsonSerializerOptions CreateSerializerOptions(MetadataLoadContext metadataLoadContext)
     {
@@ -42,7 +64,44 @@ internal class AssemblyImportExportInfo
         }
 
         public override PInvoke? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-            => default;
+        {
+            ReadToken(ref reader, JsonTokenType.StartObject);
+            
+            ReadPropertyName(ref reader, nameof(PInvoke.EntryPoint));
+            var entryPoint = reader.GetString();
+            reader.Read();
+
+            ReadPropertyName(ref reader, nameof(PInvoke.Module));
+            var module = reader.GetString();
+            reader.Read();
+
+            ReadPropertyName(ref reader, nameof(PInvoke.Method));
+            ReadToken(ref reader, JsonTokenType.StartArray);
+            var methodModuleName = reader.GetString();
+            reader.Read();
+            var methodMetadataToken = reader.GetInt32();
+            reader.Read();
+            ReadToken(ref reader, JsonTokenType.EndArray);
+
+            var skip = false;
+            if (reader.TokenType == JsonTokenType.PropertyName)
+            {
+                ReadPropertyName(ref reader, nameof(PInvoke.Skip));
+                skip = reader.GetBoolean();
+                reader.Read();
+            }
+
+            if (reader.TokenType != JsonTokenType.EndObject)
+            {
+                throw new InvalidOperationException($"Should be at end of object, but found token {reader.TokenType}");
+            }
+
+            var assembly = _metadataLoadContext.LoadFromAssemblyName(methodModuleName!);
+            //var methodInfo = (MethodInfo)assembly.Modules.Select(m => m.ResolveMethod(methodMetadataToken)).First()!;
+            var methodInfo = (MethodInfo)null!;
+
+            return new PInvoke(entryPoint!, module!, methodInfo) { Skip = skip };
+        }
 
         public override void Write(Utf8JsonWriter writer, PInvoke value, JsonSerializerOptions options)
         {
@@ -54,7 +113,7 @@ internal class AssemblyImportExportInfo
             // Not actually sure we'll be using this info - might be possible to skip emitting it
             writer.WritePropertyName(nameof(value.Method));
             writer.WriteStartArray();
-            writer.WriteStringValue(value.Method.Module.Name);
+            writer.WriteStringValue(value.Method.Module.Assembly.GetName().Name);
             writer.WriteNumberValue(value.Method.MetadataToken);
             writer.WriteEndArray();
 
@@ -77,7 +136,32 @@ internal class AssemblyImportExportInfo
         }
 
         public override PInvokeCallback? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-            => default;
+        {
+            ReadToken(ref reader, JsonTokenType.StartObject);
+
+            ReadPropertyName(ref reader, nameof(PInvokeCallback.EntryName));
+            var entryName = reader.GetString();
+            reader.Read();
+
+            ReadPropertyName(ref reader, nameof(PInvokeCallback.Method));
+            ReadToken(ref reader, JsonTokenType.StartArray);
+            var methodModuleName = reader.GetString();
+            reader.Read();
+            var methodMetadataToken = reader.GetInt32();
+            reader.Read();
+            ReadToken(ref reader, JsonTokenType.EndArray);
+
+            if (reader.TokenType != JsonTokenType.EndObject)
+            {
+                throw new InvalidOperationException($"Should be at end of object, but found token {reader.TokenType}");
+            }
+
+            var assembly = _metadataLoadContext.LoadFromAssemblyName(methodModuleName!);
+            //var methodInfo = (MethodInfo)assembly.Modules.Select(m => m.ResolveMethod(methodMetadataToken)).First()!;
+            var methodInfo = (MethodInfo)null!;
+
+            return new PInvokeCallback(methodInfo) { EntryName = entryName };
+        }
 
         public override void Write(Utf8JsonWriter writer, PInvokeCallback value, JsonSerializerOptions options)
         {
@@ -88,7 +172,7 @@ internal class AssemblyImportExportInfo
             // Not actually sure we'll be using this info - might be possible to skip emitting it
             writer.WritePropertyName(nameof(value.Method));
             writer.WriteStartArray();
-            writer.WriteStringValue(value.Method.Module.Name);
+            writer.WriteStringValue(value.Method.Module.Assembly.GetName().Name);
             writer.WriteNumberValue(value.Method.MetadataToken);
             writer.WriteEndArray();
 

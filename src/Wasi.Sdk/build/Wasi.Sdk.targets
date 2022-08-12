@@ -10,6 +10,7 @@
 	<UsingTask TaskName="Wasi.Sdk.Tasks.EmitWasmBundleObjectFile" AssemblyFile="$(WasiSdkTaskAssembly)" />
 	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmResolveAssemblyDependencies" AssemblyFile="$(WasiSdkTaskAssembly)" />
 	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmCollectImportsExports" AssemblyFile="$(WasiSdkTaskAssembly)" />
+	<UsingTask TaskName="Wasi.Sdk.Tasks.WasmGenerateImportsExports" AssemblyFile="$(WasiSdkTaskAssembly)" />
 	
 	<PropertyGroup>
 		<!-- Keep this block all in sync manually, since URLs can be arbitrary -->
@@ -296,12 +297,15 @@
 		<!-- Generate any new files -->
 		<WasmCollectImportsExports Assemblies="@(_WasmImportExportAssembly)" />
 
-		<!--
+		<!-- TODO: Make incremental -->
+		<WasmGenerateImportsExports Assemblies="@(_WasmImportExportAssembly)">
+			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
+		</WasmGenerateImportsExports>
+
 		<WriteLinesToFile File="$(_WasmImportsExportsGeneratedSource)"
 			Overwrite="true"
-			Lines="@(_WasiImportsOutputsSourceCode)"
+			Lines="@(_WasiImportsOutputsGeneratedCode)"
 			WriteOnlyWhenDifferent="true" />
-			-->
 	</Target>
 
 </Project>
