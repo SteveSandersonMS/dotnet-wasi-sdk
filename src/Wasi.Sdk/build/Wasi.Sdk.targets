@@ -300,9 +300,16 @@
 	</Target>
 
 	<Target Name="GenerateWasmImportsExports" Inputs="@(_WasmImportExportAssembly->'%(GeneratedSource)')" Outputs="$(_WasmImportsExportsGeneratedSource)">
+		<ItemGroup>
+			<!-- This list is *not* the same as the filenames for the .a files we're linking with -->
+			<!-- I expect it's the name of the object files inside them, however it's not easy to get that -->
+			<!-- info so hardcoding it for now. -->
+			<_WasiLinkedModules Include="libSystem.Native" />
+			<_WasiLinkedModules Include="libSystem.Globalization.Native" />
+		</ItemGroup>
 		<WasmGenerateImportsExports
 			Assemblies="@(_WasmImportExportAssembly)"
-			LinkedModules="libSystem.Native">
+			LinkedModules="@(_WasiLinkedModules)">
 			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
 		</WasmGenerateImportsExports>
 

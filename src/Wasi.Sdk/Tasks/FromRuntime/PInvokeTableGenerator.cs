@@ -49,7 +49,7 @@ internal sealed class PInvokeTableGenerator
         {
             using (var w = File.CreateText(tmpFileName))
             {
-                EmitPInvokeTable(Log, w, modules, pinvokes);
+                EmitPInvokeTable(Log, w, modules, pinvokes, generateImportsForUnmatchedModules: false);
                 EmitNativeToInterp(w, callbacks);
             }
 
@@ -116,15 +116,15 @@ internal sealed class PInvokeTableGenerator
         }
     }
 
-    public static void EmitPInvokeTable(TaskLoggingHelper log, StreamWriter w, Dictionary<string, string> modules, List<PInvoke> pinvokes)
+    public static void EmitPInvokeTable(TaskLoggingHelper log, StreamWriter w, Dictionary<string, string> modules, List<PInvoke> pinvokes, bool generateImportsForUnmatchedModules)
     {
         w.WriteLine("// GENERATED FILE, DO NOT MODIFY");
         w.WriteLine();
 
         var pinvokesGroupedByEntryPoint = pinvokes
-                                            .Where(l => modules.ContainsKey(l.Module))
+                                            .Where(l => generateImportsForUnmatchedModules || modules.ContainsKey(l.Module))
                                             .OrderBy(l => l.EntryPoint)
-                                            .GroupBy(l => l.EntryPoint);
+                                            .GroupBy(l => $"[{l.Module}]{l.EntryPoint}");
 
         var comparer = new PInvokeComparer();
         foreach (IGrouping<string, PInvoke> group in pinvokesGroupedByEntryPoint)
@@ -149,7 +149,7 @@ internal sealed class PInvokeTableGenerator
             var decls = new HashSet<string>();
             foreach (var candidate in candidates)
             {
-                var decl = GenPInvokeDecl(log, candidate);
+                var decl = GenPInvokeDecl(log, modules, candidate);
                 if (decl == null || decls.Contains(decl))
                     continue;
 
@@ -158,7 +158,16 @@ internal sealed class PInvokeTableGenerator
             }
         }
 
-        foreach (var module in modules.Keys)
+        var allModuleNames = new HashSet<string>(modules.Keys);
+        if (generateImportsForUnmatchedModules)
+        {
+            foreach (var moduleName in pinvokes.Select(x => x.Module))
+            {
+                allModuleNames.Add(moduleName);
+            }
+        }
+
+        foreach (var module in allModuleNames)
         {
             string symbol = ModuleNameToId(module) + "_imports";
             w.WriteLine("static PinvokeImport " + symbol + " [] = {");
@@ -166,27 +175,28 @@ internal sealed class PInvokeTableGenerator
             var assemblies_pinvokes = pinvokes.
                 Where(l => l.Module == module && !l.Skip).
                 OrderBy(l => l.EntryPoint).
-                GroupBy(d => d.EntryPoint).
-                Select(l => "{\"" + FixupSymbolName(l.Key) + "\", " + FixupSymbolName(l.Key) + "}, " +
-                                "// " + string.Join(", ", l.Select(c => c.Method.DeclaringType!.Module!.Assembly!.GetName()!.Name!).Distinct().OrderBy(n => n)));
+                GroupBy(d => d.EntryPoint);
 
-            foreach (var pinvoke in assemblies_pinvokes)
+            foreach (var l in assemblies_pinvokes)
             {
-                w.WriteLine(pinvoke);
+                var symbolName = CreateSymbolNameForPInvoke(modules, module, l.Key);
+                var tableEntry = "{\"" + symbolName + "\", " + symbolName + "}, " +
+                                "// " + string.Join(", ", l.Select(c => c.Method.DeclaringType!.Module!.Assembly!.GetName()!.Name!).Distinct().OrderBy(n => n));
+                w.WriteLine(tableEntry);
             }
 
             w.WriteLine("{NULL, NULL}");
             w.WriteLine("};");
         }
         w.Write("static void *pinvoke_tables[] = { ");
-        foreach (var module in modules.Keys)
+        foreach (var module in allModuleNames)
         {
             string symbol = ModuleNameToId(module) + "_imports";
             w.Write(symbol + ",");
         }
         w.WriteLine("};");
         w.Write("static char *pinvoke_names[] = { ");
-        foreach (var module in modules.Keys)
+        foreach (var module in allModuleNames)
         {
             w.Write("\"" + module + "\"" + ",");
         }
@@ -219,6 +229,13 @@ internal sealed class PInvokeTableGenerator
                         .Any(c => !TryIsMethodGetParametersUnsupported(c.Method, out _) &&
                                     c.Method.GetParameters().Length != firstNumArgs);
         }
+    }
+
+    private static string CreateSymbolNameForPInvoke(Dictionary<string, string> linkedModules, string module, string entryPoint)
+    {
+        return linkedModules.ContainsKey(module)
+            ? FixupSymbolName(entryPoint) // Must match the export from the linked module
+            : $"{FixupSymbolName(module)}_{FixupSymbolName(entryPoint)}"; // Arbitrary globally-unique name
     }
 
     private static string FixupSymbolName(string name)
@@ -292,7 +309,7 @@ internal sealed class PInvokeTableGenerator
         return false;
     }
 
-    private static string? GenPInvokeDecl(TaskLoggingHelper log, PInvoke pinvoke)
+    private static string? GenPInvokeDecl(TaskLoggingHelper log, Dictionary<string, string> linkedModules, PInvoke pinvoke)
     {
         var sb = new StringBuilder();
         var method = pinvoke.Method;
@@ -311,8 +328,17 @@ internal sealed class PInvokeTableGenerator
             return null;
         }
 
+        if (!linkedModules.ContainsKey(pinvoke.Module))
+        {
+            // This is going to be an import on the WebAssembly module. Emit the Clang attributes for that.
+            sb.AppendLine($"__attribute__((import_module(\"{pinvoke.Module}\")))");
+            sb.AppendLine($"__attribute__((import_name(\"{pinvoke.EntryPoint}\")))");
+        }
+
         sb.Append(MapType(method.ReturnType));
-        sb.Append($" {FixupSymbolName(pinvoke.EntryPoint)} (");
+
+        var symbolName = CreateSymbolNameForPInvoke(linkedModules, pinvoke.Module, pinvoke.EntryPoint);
+        sb.Append($" {symbolName} (");
         int pindex = 0;
         var pars = method.GetParameters();
         foreach (var p in pars)
