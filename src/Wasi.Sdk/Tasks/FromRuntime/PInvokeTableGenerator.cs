@@ -484,9 +484,10 @@ internal sealed class PInvoke : IEquatable<PInvoke>
         Method = method;
     }
 
-    public string EntryPoint;
-    public string Module;
-    public MethodInfo Method;
+    public string EntryPoint { get; set; }
+    public string Module { get; set; }
+    public MethodInfo Method { get; set; }
+
     public bool Skip;
 
     public bool Equals(PInvoke? other)
@@ -521,6 +522,6 @@ internal sealed class PInvokeCallback
         Method = method;
     }
 
-    public MethodInfo Method;
-    public string? EntryName;
+    public MethodInfo Method { get; set; }
+    public string? EntryName { get; set; }
 }

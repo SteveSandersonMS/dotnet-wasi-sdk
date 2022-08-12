@@ -51,8 +51,9 @@ public class WasmGenerateImportsExports : Microsoft.Build.Utilities.Task
 
             using var assemblyFileStream = File.OpenRead(assemblyGeneratedFilePath);
             var assemblyInfo = JsonSerializer.Deserialize<AssemblyImportExportInfo>(assemblyFileStream, jsonOptions)!;
-
-            Log.LogMessage(MessageImportance.High, $"Parsed {assemblyInfo.Signatures.Count} signatures from {assemblyGeneratedFilePath}");
+            allPinvokes.AddRange(assemblyInfo.PInvokes);
+            allPinvokeCallbacks.AddRange(assemblyInfo.PInvokeCallbacks);
+            allSignatures.AddRange(assemblyInfo.Signatures);
         }
 
         return true;
