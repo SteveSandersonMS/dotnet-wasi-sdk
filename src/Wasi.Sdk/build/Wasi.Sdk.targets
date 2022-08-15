@@ -53,6 +53,7 @@
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
+		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-marshal-ilgen-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
 		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
 		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
