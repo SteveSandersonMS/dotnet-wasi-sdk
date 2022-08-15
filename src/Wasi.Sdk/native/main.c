@@ -9,6 +9,9 @@ const char* dotnet_wasi_getentrypointassemblyname();
 const char* dotnet_wasi_getbundledfile(const char* name, int* out_length);
 void dotnet_wasi_registerbundledassemblies();
 
+// TODO: This should actually go in driver.c in the runtime
+void mono_marshal_ilgen_init() {}
+
 #ifdef WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
 // This is supplied from the MSBuild itemgroup @(WasiAfterRuntimeLoaded)
 WASI_AFTER_RUNTIME_LOADED_DECLARATIONS
