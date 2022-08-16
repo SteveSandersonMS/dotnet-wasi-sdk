@@ -3,6 +3,8 @@
 
 using Microsoft.Build.Framework;
 using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,8 +18,23 @@ namespace Wasi.Sdk.Tasks;
 /// </summary>
 public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
 {
+    // Each pinvoke is put into one of these three categories:
+    // - If its module is in LinkedModules, we emit it as a regular C extern symbol, and hence the compilation will only
+    //   succeed if we actually do link with a module exporting this symbol. This is used for things like libSystem.Native
+    //   or if you were to link with sqlite etc.
+    // - If its module matches an assembly metadata attribute called WasmImportModule, then we emit a Clang-attributed
+    //   wasm import, so compilation doesn't require the symbol to existing, but we'd fail to start at runtime if the
+    //   WASM host didn't supply a corresponding import
+    // - For everything else, we skip it. This will be the case for many things referenced from framework assemblies that
+    //   are never used in a real wasm app, such as Microsoft.AspNetCore.Server.IIS having DllImports to things on
+    //   api-ms-win-core-io-l1-1-0.dll, etc. Most of these DllImports would be stripped out by trimming, but we want things
+    //   to work even if you're not trimming.
+
     [Required]
     public ITaskItem[] Assemblies { get; set; } = default!;
+
+    [Required, NotNull]
+    public string[]? LinkedModules { get; set; }
 
     public override bool Execute()
     {
@@ -46,9 +63,10 @@ public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
             var assemblyName = assemblyItem.ItemSpec;
             var assembly = metadataLoadContext.LoadFromAssemblyPath(assemblyName);
             var extractedInfo = new AssemblyImportExportInfo();
+            var modulesForAssembly = GetModulesForAssembly(assembly, LinkedModules);
             foreach (var type in assembly.GetTypes())
             {
-                PInvokeTableGenerator.CollectPInvokes(Log, extractedInfo.PInvokes, extractedInfo.PInvokeCallbacks, extractedInfo.Signatures, type);
+                PInvokeTableGenerator.CollectPInvokes(Log, extractedInfo.PInvokes, extractedInfo.PInvokeCallbacks, extractedInfo.Signatures, modulesForAssembly, type);
             }
 
             // Finally, emit the per-assembly info into a file
@@ -61,5 +79,21 @@ public class WasmCollectImportsExports : Microsoft.Build.Utilities.Task
         }
 
         return true;
+    }
+
+    private Dictionary<string, string> GetModulesForAssembly(Assembly assembly, string[] linkedModules)
+    {
+        // We'll include both:
+        // - the global set of linked modules, which will result in generating regular C extern symbols that have
+        //   to be resolved at link time
+        // - and any WasmImportModule values on the assembly, which will result in generating WebAssembly imports
+        //   that get resolved at module instantiation time
+        var wasmImportModules = CustomAttributeData.GetCustomAttributes(assembly)
+            .Where(a => string.Equals(a.AttributeType.FullName, typeof(AssemblyMetadataAttribute).FullName, StringComparison.Ordinal))
+            .Where(a => a.ConstructorArguments.Count == 2 && string.Equals((string)a.ConstructorArguments[0].Value!, "WasmImportModule", StringComparison.OrdinalIgnoreCase))
+            .Where(a => !string.IsNullOrWhiteSpace((string)a.ConstructorArguments[1].Value!))
+            .Select(a => (string)a.ConstructorArguments[1].Value!);
+
+        return linkedModules.Concat(wasmImportModules).ToDictionary(x => x, x => x);
     }
 }

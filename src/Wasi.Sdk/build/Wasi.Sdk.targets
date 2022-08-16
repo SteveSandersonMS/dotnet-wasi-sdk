@@ -296,24 +296,22 @@
 		</ItemGroup>
 		<Delete Files="@(_WasmImportExportFileToDelete)" />
 
-		<!-- Generate any new files -->
-		<WasmCollectImportsExports Assemblies="@(_WasmImportExportAssembly)" />
-	</Target>
-
-	<Target Name="GenerateWasmImportsExports" Inputs="@(_WasmImportExportAssembly->'%(GeneratedSource)')" Outputs="$(_WasmImportsExportsGeneratedSource)">
+		<!-- Actually walk the assemblies to find pinvokes, and emit per-assembly data -->
 		<ItemGroup>
 			<!-- This list is *not* the same as the filenames for the .a files we're linking with -->
 			<!-- I expect it's the name of the object files inside them, however it's not easy to get that -->
-			<!-- info so hardcoding it for now. -->
+			<!-- info so hardcoding it for now. Note that if this value changes it would break incrementalism, -->
+			<!-- so don't allow that. -->
 			<_WasiLinkedModules Include="libSystem.Native" />
-
-			<!-- The runtime does special stuff with this, also in src/mono/wasm -->
-			<_WasiSkipModules Include="libSystem.Globalization.Native" />
 		</ItemGroup>
+		<WasmCollectImportsExports Assemblies="@(_WasmImportExportAssembly)" LinkedModules="@(_WasiLinkedModules)" />
+	</Target>
+
+	<Target Name="GenerateWasmImportsExports" Inputs="@(_WasmImportExportAssembly->'%(GeneratedSource)')" Outputs="$(_WasmImportsExportsGeneratedSource)">
+		<!-- Combine the per-assembly data into a single source file -->
 		<WasmGenerateImportsExports
 			Assemblies="@(_WasmImportExportAssembly)"
-			LinkedModules="@(_WasiLinkedModules)"
-			SkipModules="@(_WasiSkipModules)">
+			LinkedModules="@(_WasiLinkedModules)">
 			<Output TaskParameter="GeneratedCode" ItemName="_WasiImportsOutputsGeneratedCode" />
 		</WasmGenerateImportsExports>
 
