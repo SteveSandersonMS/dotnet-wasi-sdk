@@ -2,7 +2,6 @@
 
 	<ItemGroup>
 		<WasiNativeFileReference Include="$(MSBuildThisFileDirectory)..\native\*.c" />
-		<WasiAfterRuntimeLoaded Include="bundled_files_attach_internal_calls" />
 	</ItemGroup>
 
 </Project>

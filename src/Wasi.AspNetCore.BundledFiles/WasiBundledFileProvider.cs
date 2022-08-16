@@ -4,14 +4,20 @@
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Primitives;
 using System.Collections;
+using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.Marshalling;
+
+[assembly: AssemblyMetadata("WasmImportModule", "aspnetcorebundledfiles")]
+[assembly: DisableRuntimeMarshalling]
 
 namespace Wasi.AspNetCore.BundledFiles;
 
 public class WasiBundledFileProvider : IFileProvider
 {
-    [MethodImpl(MethodImplOptions.InternalCall)]
-    private static extern unsafe byte* GetEmbeddedFile(string name, out int length);
+    [DllImport("aspnetcorebundledfiles")]
+    private static extern unsafe byte* mono_get_embedded_file(void* name, int* length);
 
     private readonly static DateTime FakeLastModified = new DateTime(2000, 1, 1);
 
@@ -23,7 +29,9 @@ public class WasiBundledFileProvider : IFileProvider
     public unsafe IFileInfo GetFileInfo(string subpath)
     {
         var subpathWithoutLeadingSlash = subpath.AsSpan(1);
-        var fileBytes = GetEmbeddedFile($"wwwroot/{subpathWithoutLeadingSlash}", out var length);
+        int length;
+        var name = $"wwwroot/{subpathWithoutLeadingSlash}";
+        var fileBytes = mono_get_embedded_file(Unsafe.AsPointer(ref name), &length);
         return fileBytes == null
             ? new NotFoundFileInfo(subpath)
             : new BundledFileInfo(subpath, length, FakeLastModified, fileBytes);
