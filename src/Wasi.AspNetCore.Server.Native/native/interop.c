@@ -2,8 +2,6 @@
 #include <assert.h>
 #include "dotnet_method.h"
 
-void tcp_listener_attach_internal_calls();
-
 void noop_settimeout(int timeout) {
     // Not implemented
 }
@@ -16,5 +14,4 @@ void wasi_queuecallback() {
 void native_networking_attach_internal_calls() {
     mono_add_internal_call("System.Threading.TimerQueue::SetTimeout", noop_settimeout);
     mono_add_internal_call("System.Threading.ThreadPool::QueueCallback", wasi_queuecallback);
-    tcp_listener_attach_internal_calls();
 }

@@ -82,7 +82,7 @@ internal class WasiConnectionContext : ConnectionContext
         {
             fixed (byte* bufPtr = chunk.Span)
             {
-                Interop.SendResponseData(FileDescriptor, bufPtr, chunk.Length);
+                Interop.send_response_data(FileDescriptor, bufPtr, chunk.Length);
             }
         }
     }

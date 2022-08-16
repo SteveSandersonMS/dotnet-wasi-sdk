@@ -123,8 +123,8 @@ void run_polling_listener(int interop_gchandle, int* cancellation_flag) {
     free(read_buffer);
 }
 
-void run_tcp_listener_loop(MonoObject* interop) {
-    int interop_gchandle = mono_gchandle_new(interop, /* pinned */ 1);
+void wasiaspnetcoreservernative_run_tcp_listener_loop(MonoObject** interop) {
+    int interop_gchandle = mono_gchandle_new(*interop, /* pinned */ 1);
 
     // TODO: Find some way to let .NET set this cancellation flag
     int cancel = 0;
@@ -133,7 +133,7 @@ void run_tcp_listener_loop(MonoObject* interop) {
     mono_gchandle_free(interop_gchandle);
 }
 
-void send_response_data(int fd, char* buf, int buf_len) {
+void wasiaspnetcoreservernative_send_response_data(int fd, char* buf, int buf_len) {
     while (1) {
         int res = write(fd, buf, buf_len);
 
@@ -157,9 +157,4 @@ void send_response_data(int fd, char* buf, int buf_len) {
             break;
         }
     }
-}
-
-void tcp_listener_attach_internal_calls() {
-    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::RunTcpListenerLoop", run_tcp_listener_loop);
-    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SendResponseData", send_response_data);
 }
