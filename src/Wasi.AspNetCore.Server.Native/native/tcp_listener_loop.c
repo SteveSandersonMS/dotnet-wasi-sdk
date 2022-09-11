@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <mono-wasi/driver.h>
 #include "dotnet_method.h"
 
@@ -27,6 +28,13 @@ DEFINE_DOTNET_METHOD(notify_opened_connection, "Wasi.AspNetCore.Server.Native.dl
 DEFINE_DOTNET_METHOD(notify_closed_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyClosedConnection");
 DEFINE_DOTNET_METHOD(notify_data_received, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyDataReceived");
 
+typedef struct Preopen
+{
+    int fd;
+    struct Preopen *next;
+} Preopen;
+Preopen* first_preopen;
+
 // Hold a linked list of active connections for the busy-polling
 typedef struct Connection {
     int fd;
@@ -34,10 +42,24 @@ typedef struct Connection {
 } Connection;
 Connection* first_connection;
 
-void accept_any_new_connection(int interop_gchandle) {
+void init_preopen_fds() {
     // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
     // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
-    int preopen_fd = getenv("DEBUGGER_FD") ? 4 : 3;
+    int base_fd = getenv("DEBUGGER_FD") ? 4 : 3;
+
+    for(int i = base_fd; i < 1024; i++) {
+        struct stat fdStat;
+        if(fstat(i, &fdStat) != -1 
+        && S_ISSOCK(fdStat.st_mode) != 0) {
+            Preopen *next_preopen = (Preopen *)malloc(sizeof(Preopen));
+            next_preopen->fd = i;
+            next_preopen->next = first_preopen;
+            first_preopen = next_preopen;
+        }
+    }
+}
+
+void accept_any_new_connection(int preopen_fd, int interop_gchandle) {
 
     // libc's accept4 is mapped to WASI's sock_accept with some additional parameter/return mapping at https://github.com/WebAssembly/wasi-libc/blob/63e4489d01ad0262d995c6d9a5f1a1bab719c917/libc-bottom-half/sources/accept.c#L10
     struct sockaddr addr_out_ignored;
@@ -109,13 +131,17 @@ void close_all_connections() {
 void run_polling_listener(int interop_gchandle, int* cancellation_flag) {
     int read_buffer_len = 1024*1024;
     void* read_buffer = malloc(read_buffer_len);
-
+    init_preopen_fds();
     // TODO: Stop doing busy-polling. This is the only cross-platform supported option at the moment, but
     // on Linux there's a notification mechanism (https://github.com/bytecodealliance/wasmtime/issues/3730).
     // Once Wasmtime (etc) implement cross-platform support for notification, this code should use it.
     while (*cancellation_flag == 0) {
         usleep(10000);
-        accept_any_new_connection(interop_gchandle);
+        Preopen* curr = first_preopen;
+        while(curr != NULL) {
+            accept_any_new_connection(curr->fd, interop_gchandle);
+            curr = curr->next;
+        }
         poll_connections(interop_gchandle, read_buffer, read_buffer_len);
     }
 
