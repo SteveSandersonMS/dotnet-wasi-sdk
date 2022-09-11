@@ -39,7 +39,7 @@ ConnectionFd* first_preopen;
 // Hold a linked list of active connections for the busy-polling
 ConnectionFd* first_connection;
 
-void init_preopen_fds() {
+void find_preopen_fds() {
     // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
     // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
     int base_fd = getenv("DEBUGGER_FD") ? 4 : 3;
@@ -136,7 +136,7 @@ void close_all_connections() {
 void run_polling_listener(int interop_gchandle, int* cancellation_flag) {
     int read_buffer_len = 1024*1024;
     void* read_buffer = malloc(read_buffer_len);
-    init_preopen_fds();
+    find_preopen_fds();
     // TODO: Stop doing busy-polling. This is the only cross-platform supported option at the moment, but
     // on Linux there's a notification mechanism (https://github.com/bytecodealliance/wasmtime/issues/3730).
     // Once Wasmtime (etc) implement cross-platform support for notification, this code should use it.
