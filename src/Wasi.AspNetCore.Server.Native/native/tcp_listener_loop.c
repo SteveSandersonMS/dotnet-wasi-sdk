@@ -28,19 +28,16 @@ DEFINE_DOTNET_METHOD(notify_opened_connection, "Wasi.AspNetCore.Server.Native.dl
 DEFINE_DOTNET_METHOD(notify_closed_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyClosedConnection");
 DEFINE_DOTNET_METHOD(notify_data_received, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyDataReceived");
 
-typedef struct Preopen
+typedef struct ConnectionFd
 {
     int fd;
-    struct Preopen *next;
-} Preopen;
-Preopen* first_preopen;
+    struct ConnectionFd* next;
+} ConnectionFd;
 
+// Hold a linked list of preopened connection file descriptors
+ConnectionFd* first_preopen;
 // Hold a linked list of active connections for the busy-polling
-typedef struct Connection {
-    int fd;
-    struct Connection* next;
-} Connection;
-Connection* first_connection;
+ConnectionFd* first_connection;
 
 void init_preopen_fds() {
     // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
@@ -51,7 +48,7 @@ void init_preopen_fds() {
         struct stat fdStat;
         if(fstat(i, &fdStat) != -1 
         && S_ISSOCK(fdStat.st_mode) != 0) {
-            Preopen *next_preopen = (Preopen *)malloc(sizeof(Preopen));
+            ConnectionFd* next_preopen = (ConnectionFd *)malloc(sizeof(ConnectionFd));
             next_preopen->fd = i;
             next_preopen->next = first_preopen;
             first_preopen = next_preopen;
@@ -66,7 +63,7 @@ void accept_any_new_connection(int preopen_fd, int interop_gchandle) {
     socklen_t addr_len_out_ignored;
     int new_connection_fd = accept4(preopen_fd, &addr_out_ignored, &addr_len_out_ignored, SOCK_NONBLOCK);
     if (new_connection_fd > 0) {
-        Connection* new_connection = (Connection*)malloc(sizeof(Connection));
+        ConnectionFd *new_connection = (ConnectionFd *)malloc(sizeof(ConnectionFd));
         new_connection->fd = new_connection_fd;
         new_connection->next = first_connection;
         first_connection = new_connection;
@@ -79,10 +76,10 @@ void accept_any_new_connection(int preopen_fd, int interop_gchandle) {
 }
 
 void poll_connections(int interop_gchandle, void* read_buffer, int read_buffer_len) {
-    Connection* prev_connection = NULL;
-    Connection* connection = first_connection;
+    ConnectionFd* prev_connection = NULL;
+    ConnectionFd* connection = first_connection;
     while (connection) {
-        Connection* next_connection = connection->next;
+        ConnectionFd* next_connection = connection->next;
 
         int bytes_read = read(connection->fd, read_buffer, read_buffer_len);
         int has_received_data = bytes_read > 0;
@@ -119,8 +116,16 @@ void poll_connections(int interop_gchandle, void* read_buffer, int read_buffer_l
     }
 }
 
+void dispose_preopen_fds() {
+    ConnectionFd* preopen;
+    while ((preopen = first_preopen)) {
+        first_preopen = preopen->next;
+        free(preopen);
+    }
+}
+
 void close_all_connections() {
-    Connection* connection;
+    ConnectionFd* connection;
     while ((connection = first_connection)) {
         first_connection = connection->next;
         close(connection->fd);
@@ -137,7 +142,7 @@ void run_polling_listener(int interop_gchandle, int* cancellation_flag) {
     // Once Wasmtime (etc) implement cross-platform support for notification, this code should use it.
     while (*cancellation_flag == 0) {
         usleep(10000);
-        Preopen* curr = first_preopen;
+        ConnectionFd* curr = first_preopen;
         while(curr != NULL) {
             accept_any_new_connection(curr->fd, interop_gchandle);
             curr = curr->next;
@@ -146,6 +151,7 @@ void run_polling_listener(int interop_gchandle, int* cancellation_flag) {
     }
 
     close_all_connections();
+    dispose_preopen_fds();
     free(read_buffer);
 }
 
