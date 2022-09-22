@@ -1,0 +1,26 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net7.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Wasmtime" Version="0.40.0-preview1" />
+    <ProjectReference Include="..\Filter.WasmHost\Filter.WasmHost.csproj" ReferenceOutputAssembly="false"/>
+    <ProjectReference Include="..\Filter.Custom\Filter.Custom.csproj" ReferenceOutputAssembly="false"/>
+  </ItemGroup>
+
+  <Target Name="CopyBinaries" AfterTargets="AfterBuild">
+    <ItemGroup>
+      <WASI Include="..\Filter.WasmHost\bin\$(Configuration)\net7.0\Filter.WasmHost.wasm" />
+      <CUSTOM Include="..\Filter.Custom\bin\$(Configuration)\net6.0\*.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WASI)" DestinationFolder="$(TargetDir)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(CUSTOM)" DestinationFolder="$(TargetDir)\%(RecursiveDir)" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
