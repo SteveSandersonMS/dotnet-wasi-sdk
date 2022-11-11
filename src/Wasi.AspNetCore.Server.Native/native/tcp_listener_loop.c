@@ -42,7 +42,7 @@ void accept_any_new_connection(int interop_gchandle) {
     // libc's accept4 is mapped to WASI's sock_accept with some additional parameter/return mapping at https://github.com/WebAssembly/wasi-libc/blob/63e4489d01ad0262d995c6d9a5f1a1bab719c917/libc-bottom-half/sources/accept.c#L10
     struct sockaddr addr_out_ignored;
     socklen_t addr_len_out_ignored;
-    int new_connection_fd = accept4(preopen_fd, &addr_out_ignored, &addr_len_out_ignored, SOCK_NONBLOCK);
+    int new_connection_fd = accept(preopen_fd, &addr_out_ignored, &addr_len_out_ignored);
     if (new_connection_fd > 0) {
         Connection* new_connection = (Connection*)malloc(sizeof(Connection));
         new_connection->fd = new_connection_fd;
