@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <mono-wasi/driver.h>
 #include <netinet/in.h>
+#include <arpa/inet.h>
 #include "dotnet_method.h"
 
 /* 
@@ -28,19 +29,27 @@ But it would be a vulnerability if done for real.
 // __attribute__((import_name("response_complete")))
 // void response_complete (int request_id, int status_code);
 
-struct WasiAddress
-{
-    const char *buf;
+struct WasiAddress {
+    const char * buf;
     size_t size;
 };
 
 #define WASM_EDGE_IMPORT(n) __attribute__((import_module("wasi_snapshot_preview1"))) __attribute__((import_name(n)));
 
 WASM_EDGE_IMPORT("sock_open")
-unsigned int sock_open(unsigned char addr_family, )
+int sock_open(int addr_family, int sock_type, int* fd);
 
 WASM_EDGE_IMPORT("sock_bind")
-unsigned int sock_bind(unsigned int fd, struct WasiAddress* addr, unsigned int port);
+int sock_bind(int fd, struct WasiAddress addr, int port);
+
+WASM_EDGE_IMPORT("sock_listen")
+int sock_listen(int fd, int backlog);
+
+WASM_EDGE_IMPORT("sock_accept")
+int sock_accept(int fd, int* fd2);
+
+WASM_EDGE_IMPORT("sock_connect")
+int sock_connect(int fd, struct WasiAddress* addr, int port);
 
 DEFINE_DOTNET_METHOD(notify_opened_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyOpenedConnection");
 DEFINE_DOTNET_METHOD(notify_closed_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyClosedConnection");
@@ -54,14 +63,23 @@ typedef struct Connection {
 Connection* first_connection;
 
 void accept_any_new_connection(int interop_gchandle) {
-    // It's a bit odd, but WASI preopened listeners have file handles sequentially starting from 3. If the host preopened more than
-    // one, you could sock_accept with fd=3, then fd=4, etc., until you run out of preopens.
-    int preopen_fd = getenv("DEBUGGER_FD") ? 4 : 3;
+    int fd;
+    int ret = sock_open(0, 0, &fd);
+    struct WasiAddress addr;
+    // addr.buf = "11111111111111111";
 
-    // libc's accept4 is mapped to WASI's sock_accept with some additional parameter/return mapping at https://github.com/WebAssembly/wasi-libc/blob/63e4489d01ad0262d995c6d9a5f1a1bab719c917/libc-bottom-half/sources/accept.c#L10
-    struct sockaddr addr_out_ignored;
-    socklen_t addr_len_out_ignored;
-    int new_connection_fd = accept(preopen_fd, &addr_out_ignored, &addr_len_out_ignored);
+    // store this IP address in sa:
+    inet_pton(AF_INET, "0.0.0.0", &(addr.buf));
+
+    addr.size = 4;
+
+    int port = 8082;
+    sock_bind(fd, addr, port);
+
+    sock_listen(fd, 128);
+
+    int new_connection_fd = 0;
+    sock_accept(fd, &new_connection_fd);
     if (new_connection_fd > 0) {
         Connection* new_connection = (Connection*)malloc(sizeof(Connection));
         new_connection->fd = new_connection_fd;
