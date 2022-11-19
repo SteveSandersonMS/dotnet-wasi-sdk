@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <sys/socket.h>
 #include <mono-wasi/driver.h>
+#include <netinet/in.h>
 #include "dotnet_method.h"
 
 /* 
@@ -22,6 +23,24 @@ My guess is that Wasmtime needs to know about WSAECONNRESET/WSAENETRESET/WSAECON
 codes to the wasm code instead of aborting. For prototype purposes, I can ignore this since clients normally do close gracefully.
 But it would be a vulnerability if done for real.
 */
+
+// __attribute__((import_module("wasi_snapshot_preview1")))
+// __attribute__((import_name("response_complete")))
+// void response_complete (int request_id, int status_code);
+
+struct WasiAddress
+{
+    const char *buf;
+    size_t size;
+};
+
+#define WASM_EDGE_IMPORT(n) __attribute__((import_module("wasi_snapshot_preview1"))) __attribute__((import_name(n)));
+
+WASM_EDGE_IMPORT("sock_open")
+unsigned int sock_open(unsigned char addr_family, )
+
+WASM_EDGE_IMPORT("sock_bind")
+unsigned int sock_bind(unsigned int fd, struct WasiAddress* addr, unsigned int port);
 
 DEFINE_DOTNET_METHOD(notify_opened_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyOpenedConnection");
 DEFINE_DOTNET_METHOD(notify_closed_connection, "Wasi.AspNetCore.Server.Native.dll", "Wasi.AspNetCore.Server.Native", "Interop", "NotifyClosedConnection");
