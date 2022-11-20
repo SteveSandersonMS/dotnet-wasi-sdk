@@ -199,4 +199,9 @@ void send_response_data(int fd, char* buf, int buf_len) {
 void tcp_listener_attach_internal_calls() {
     mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::RunTcpListenerLoop", run_tcp_listener_loop);
     mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SendResponseData", send_response_data);
+    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SockOpen", sock_open);
+    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SockBind", sock_bind);
+    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SockListen", sock_listen);
+    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SockAccept", sock_accept);
+    mono_add_internal_call("Wasi.AspNetCore.Server.Native.Interop::SockConnect", sock_connect);
 }
