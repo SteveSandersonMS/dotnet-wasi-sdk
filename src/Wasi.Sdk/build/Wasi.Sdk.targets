@@ -257,7 +257,7 @@
 		<!-- Windows 10+ has tar built in, so this should work cross-platform -->
 		<Message Importance="high" Text="Extracting @(WasiSdkDownloadTempFile) to $(WasiSdkRoot)..." />
 		<MakeDir Directories="$(WasiSdkRoot)" />
-		<Exec Command="tar -xf &quot;@(WasiSdkDownloadTempFile)&quot; -C . --strip-components=1" WorkingDirectory="$(WasiSdkRoot)" />
+		<Exec Command="tar -xf &quot;@(WasiSdkDownloadTempFile)&quot; -C . --strip-components=1 --force-local" WorkingDirectory="$(WasiSdkRoot)" />
 		<RemoveDir Directories="$(WasiSdkDownloadTempDir)" />
 	</Target>
 
