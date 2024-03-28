@@ -1,4 +1,10 @@
-# Experimental WASI SDK for .NET Core
+# Deprecated
+
+This experimental SDK is now superseded by the .NET SDK's `wasi-experimental` workload (which itself is still experimental). See https://github.com/dotnet/runtime/blob/main/src/mono/wasi/README.md
+
+Everything below this point is for comparative purposes only. Please move your experiments over to use `wasi-experimental` instead of the packages in this repo.
+
+## Experimental WASI SDK for .NET Core
 
 `Wasi.Sdk` is an experimental package that can build .NET Core projects (including whole ASP.NET Core applications) into standalone WASI-compliant `.wasm` files. These can then be run in standard WASI environments or custom WASI-like hosts.
 
