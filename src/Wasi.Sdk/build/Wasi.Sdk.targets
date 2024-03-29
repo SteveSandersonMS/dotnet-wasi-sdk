@@ -53,7 +53,6 @@
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-wasi-driver.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmonosgen-2.0.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-hot_reload-stub-static.a" />
-		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-marshal-ilgen-stub-static.a" />
 		<WasiNativeFileReference Include="$(WasiRuntimePackRoot)native\libmono-component-diagnostics_tracing-stub-static.a" />
 		<WasiNativeFileReference Condition="'$(WaitForDebugger)' == 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-static.a" />
 		<WasiNativeFileReference Condition="'$(WaitForDebugger)' != 'true'" Include="$(WasiRuntimePackRoot)native\libmono-component-debugger-stub-static.a" />
@@ -214,7 +213,7 @@
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -I"$(WasiRuntimePackRoot)\native\include"</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,--export=malloc,--export=free,--export=__heap_base,--export=__data_end</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-z,stack-size=1048576,--initial-memory=52428800,--max-memory=524288000,-lwasi-emulated-mman</WasiSdkClangArgs>
-			<WasiSdkClangArgs>$(WasiSdkClangArgs) -Wl,-s</WasiSdkClangArgs> <!-- Strip debug symbols -->
+			<WasiSdkClangArgs Condition="'$(Configuration)' != 'Debug'">$(WasiSdkClangArgs) -Wl,-s</WasiSdkClangArgs> <!-- Strip debug symbols -->
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedDeclarations)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_DECLARATIONS=&quot;@(WasiAfterRuntimeLoadedDeclarations, ' ')&quot;</WasiSdkClangArgs>
 			<WasiSdkClangArgs Condition="'@(WasiAfterRuntimeLoadedCalls)' != ''">$(WasiSdkClangArgs) -D WASI_AFTER_RUNTIME_LOADED_CALLS=&quot;@(WasiAfterRuntimeLoadedCalls, ' ')&quot;</WasiSdkClangArgs>
 			<WasiSdkClangArgs>$(WasiSdkClangArgs) -o &quot;$(WasmOutputIntermediateFile)&quot;</WasiSdkClangArgs>
